@@ -530,6 +530,7 @@ function LumiereApp() {
   const [themeId, setThemeId] = useState("mystique");
   const t = themes[themeId];
   const [menuOpen, setMenuOpen] = useState(false);
+  const [espaceViewGlobal, setEspaceViewGlobal] = useState(null);
 
   // ── Authentification & statut premium (Supabase) ──
   const [session, setSession] = useState(null);
@@ -588,7 +589,7 @@ function LumiereApp() {
   };
   const goBack = (extra) => { if (extra) extra(); setScreen("home"); };
   const markDayDone = (pi,day) => { setCompletedDays(p=>({...p,[`${pi}-${day}`]:true})); setActiveDay(null); };
-  const navigate = (key) => { setActiveProgram(null); setActiveDay(null); setScreen(key); setMenuOpen(false); };
+  const navigate = (key) => { setActiveProgram(null); setActiveDay(null); setScreen(key); setMenuOpen(false); if(key!=="premium") setEspaceViewGlobal(null); };
 
   return (
     <div style={{...s.root, background:t.bg}}>
@@ -609,7 +610,7 @@ function LumiereApp() {
             <div style={{position:"absolute",top:38,right:20,background:"#1A1428",border:"1px solid rgba(196,164,224,0.18)",borderRadius:14,padding:"6px 0",zIndex:100,minWidth:180,boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}>
               {[
                 { emoji:"👤", label: DEMO_MODE ? "Mon compte" : (session?.user?.email || "Mon compte"), action:()=>{ setMenuOpen(false); navigate("premium"); } },
-                { emoji:"🎨", label:"Changer de thème", action:()=>{ setMenuOpen(false); navigate("premium"); } },
+                { emoji:"🎨", label:"Changer de thème", action:()=>{ setMenuOpen(false); setEspaceViewGlobal("themes"); navigate("premium"); } },
                 { emoji:"🚨", label:"Mode crise", action:()=>{ setMenuOpen(false); navigate("crise"); } },
               ].map(({emoji,label,action})=>(
                 <button key={label} onClick={action} style={{width:"100%",background:"none",border:"none",padding:"11px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",textAlign:"left"}}>
@@ -646,7 +647,7 @@ function LumiereApp() {
               {screen==="exercices" && <ExercicesScreen exercises={exercises} breathing={breathing} breathPhase={breathPhase} onStartBreath={runBreath} goBack={()=>goBack()}/>}
               {screen==="crise" && <CriseScreen goBack={()=>goBack()}/>}
               {screen==="pardon" && <PardonScreen pardonTarget={pardonTarget} setPardonTarget={setPardonTarget} pardonStep={pardonStep} setPardonStep={setPardonStep} pardonTexts={pardonTexts} setPardonTexts={setPardonTexts} pardonAffIdx={pardonAffIdx} setPardonAffIdx={setPardonAffIdx} pardonDone={pardonDone} setPardonDone={setPardonDone} goBack={()=>goBack(resetPardon)}/>}
-              {screen==="premium" && <PremiumScreen isPremium={isPremium} premiumPlan={premiumPlan} setPremiumPlan={setPremiumPlan} onSubscribe={handleSubscribe} premiumSuccess={premiumSuccess} goBack={()=>goBack()} setScreen={setScreen} activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} demoMode={DEMO_MODE} userEmail={session?.user?.email} onLogout={handleLogout} onRefreshStatus={refreshProfile} themeId={themeId} setThemeId={setThemeId}/>}
+              {screen==="premium" && <PremiumScreen isPremium={isPremium} premiumPlan={premiumPlan} setPremiumPlan={setPremiumPlan} onSubscribe={handleSubscribe} premiumSuccess={premiumSuccess} goBack={()=>goBack()} setScreen={setScreen} activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} demoMode={DEMO_MODE} userEmail={session?.user?.email} onLogout={handleLogout} onRefreshStatus={refreshProfile} themeId={themeId} setThemeId={setThemeId} initialEspaceView={espaceViewGlobal} onClearEspaceView={()=>setEspaceViewGlobal(null)}/>}
             </>
           )}
         </div>
@@ -1050,9 +1051,13 @@ function ParcoursScreen({ activeProgram, setActiveProgram, activeDay, setActiveD
 }
 
 
-function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiumSuccess,goBack,setScreen,activeProgram,setActiveProgram,activeDay,setActiveDay,completedDays,markDayDone,demoMode,userEmail,onLogout,onRefreshStatus,themeId,setThemeId }) {
+function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiumSuccess,goBack,setScreen,activeProgram,setActiveProgram,activeDay,setActiveDay,completedDays,markDayDone,demoMode,userEmail,onLogout,onRefreshStatus,themeId,setThemeId,initialEspaceView,onClearEspaceView }) {
   const [tab, setTab] = useState("programmes");
-  const [espaceView, setEspaceView] = useState(null); // null | "crise" | "stats" | "meditations"
+  const [espaceView, setEspaceView] = useState(initialEspaceView || null);
+
+  useEffect(() => {
+    if (initialEspaceView) { setEspaceView(initialEspaceView); if(onClearEspaceView) onClearEspaceView(); }
+  }, [initialEspaceView]);
 
   if (espaceView==="crise") return <CriseScreen goBack={()=>setEspaceView(null)}/>;
   if (espaceView==="stats") return <StatsScreen completedDays={completedDays} goBack={()=>setEspaceView(null)}/>;
