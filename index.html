@@ -15,6 +15,7 @@
   textarea:focus,input:focus{outline:none;}
   button{cursor:pointer;font-family:Georgia,'Times New Roman',serif;}
   button:disabled{cursor:default;}
+  a{font-family:Georgia,'Times New Roman',serif;}
 </style>
 </head>
 <body>
@@ -526,6 +527,9 @@ function LumiereApp() {
   const [activeProgram, setActiveProgram] = useState(null);
   const [activeDay, setActiveDay] = useState(null);
   const [completedDays, setCompletedDays] = useState({});
+  const [themeId, setThemeId] = useState("mystique");
+  const t = themes[themeId];
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // ── Authentification & statut premium (Supabase) ──
   const [session, setSession] = useState(null);
@@ -584,19 +588,46 @@ function LumiereApp() {
   };
   const goBack = (extra) => { if (extra) extra(); setScreen("home"); };
   const markDayDone = (pi,day) => { setCompletedDays(p=>({...p,[`${pi}-${day}`]:true})); setActiveDay(null); };
-  const navigate = (key) => { setActiveProgram(null); setActiveDay(null); setScreen(key); };
+  const navigate = (key) => { setActiveProgram(null); setActiveDay(null); setScreen(key); setMenuOpen(false); };
 
   return (
-    <div style={s.root}>
-      <div style={s.glow1}/><div style={s.glow2}/><div style={s.glow3}/>
-      <div style={s.phone}>
+    <div style={{...s.root, background:t.bg}}>
+      <div style={{...s.glow1, background:`radial-gradient(circle,${t.glow1} 0%,transparent 70%)`}}/>
+      <div style={{...s.glow2, background:`radial-gradient(circle,${t.glow2} 0%,transparent 70%)`}}/>
+      <div style={{...s.glow3, background:`radial-gradient(circle,${t.glow3} 0%,transparent 70%)`}}/>
+      <div style={{...s.phone, background:t.phoneBg, border:`1px solid ${t.border}`}}>
         <CornerDecor pos="tl"/><CornerDecor pos="tr"/>
-        <div style={s.statusBar}>
+        <div style={{...s.statusBar,position:"relative"}}>
           <span style={s.statusTime}>9:41</span>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             {isPremium && <span style={s.premiumPill}><StarIcon size={9} color="#D4AF7A"/> Premium</span>}
-            <span style={{color:"rgba(196,164,224,0.4)",fontSize:11,letterSpacing:2}}>● ● ●</span>
+            <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",lineHeight:1}}>
+              <span style={{color:menuOpen?"#C4A4E0":"rgba(196,164,224,0.4)",fontSize:11,letterSpacing:2,transition:"color 0.2s"}}>● ● ●</span>
+            </button>
           </div>
+          {menuOpen && (
+            <div style={{position:"absolute",top:38,right:20,background:"#1A1428",border:"1px solid rgba(196,164,224,0.18)",borderRadius:14,padding:"6px 0",zIndex:100,minWidth:180,boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}>
+              {[
+                { emoji:"👤", label: DEMO_MODE ? "Mon compte" : (session?.user?.email || "Mon compte"), action:()=>{ setMenuOpen(false); navigate("premium"); } },
+                { emoji:"🎨", label:"Changer de thème", action:()=>{ setMenuOpen(false); navigate("premium"); } },
+                { emoji:"🚨", label:"Mode crise", action:()=>{ setMenuOpen(false); navigate("crise"); } },
+              ].map(({emoji,label,action})=>(
+                <button key={label} onClick={action} style={{width:"100%",background:"none",border:"none",padding:"11px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",textAlign:"left"}}>
+                  <span style={{fontSize:15}}>{emoji}</span>
+                  <span style={{color:"rgba(232,213,245,0.8)",fontSize:12,fontFamily:"Georgia,serif",letterSpacing:0.3}}>{label}</span>
+                </button>
+              ))}
+              {!DEMO_MODE && session && (
+                <>
+                  <div style={{height:"1px",background:"rgba(196,164,224,0.08)",margin:"4px 0"}}/>
+                  <button onClick={()=>{setMenuOpen(false);handleLogout();}} style={{width:"100%",background:"none",border:"none",padding:"11px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",textAlign:"left"}}>
+                    <span style={{fontSize:15}}>🚪</span>
+                    <span style={{color:"rgba(232,155,155,0.7)",fontSize:12,fontFamily:"Georgia,serif",letterSpacing:0.3}}>Déconnexion</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={s.content}>
@@ -613,8 +644,9 @@ function LumiereApp() {
               {screen==="humeur" && <HumeurScreen selected={selectedMood} setSelected={setSelectedMood} goBack={()=>goBack()}/>}
               {screen==="journal" && <JournalScreen text={journalText} setText={setJournalText} prompt={prompts[promptIdx]} onNextPrompt={nextPrompt} onSave={saveJournal} saved={saved} goBack={()=>goBack()}/>}
               {screen==="exercices" && <ExercicesScreen exercises={exercises} breathing={breathing} breathPhase={breathPhase} onStartBreath={runBreath} goBack={()=>goBack()}/>}
+              {screen==="crise" && <CriseScreen goBack={()=>goBack()}/>}
               {screen==="pardon" && <PardonScreen pardonTarget={pardonTarget} setPardonTarget={setPardonTarget} pardonStep={pardonStep} setPardonStep={setPardonStep} pardonTexts={pardonTexts} setPardonTexts={setPardonTexts} pardonAffIdx={pardonAffIdx} setPardonAffIdx={setPardonAffIdx} pardonDone={pardonDone} setPardonDone={setPardonDone} goBack={()=>goBack(resetPardon)}/>}
-              {screen==="premium" && <PremiumScreen isPremium={isPremium} premiumPlan={premiumPlan} setPremiumPlan={setPremiumPlan} onSubscribe={handleSubscribe} premiumSuccess={premiumSuccess} goBack={()=>goBack()} setScreen={setScreen} activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} demoMode={DEMO_MODE} userEmail={session?.user?.email} onLogout={handleLogout} onRefreshStatus={refreshProfile}/>}
+              {screen==="premium" && <PremiumScreen isPremium={isPremium} premiumPlan={premiumPlan} setPremiumPlan={setPremiumPlan} onSubscribe={handleSubscribe} premiumSuccess={premiumSuccess} goBack={()=>goBack()} setScreen={setScreen} activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} demoMode={DEMO_MODE} userEmail={session?.user?.email} onLogout={handleLogout} onRefreshStatus={refreshProfile} themeId={themeId} setThemeId={setThemeId}/>}
             </>
           )}
         </div>
@@ -1018,8 +1050,16 @@ function ParcoursScreen({ activeProgram, setActiveProgram, activeDay, setActiveD
 }
 
 
-function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiumSuccess,goBack,setScreen,activeProgram,setActiveProgram,activeDay,setActiveDay,completedDays,markDayDone,demoMode,userEmail,onLogout,onRefreshStatus }) {
+function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiumSuccess,goBack,setScreen,activeProgram,setActiveProgram,activeDay,setActiveDay,completedDays,markDayDone,demoMode,userEmail,onLogout,onRefreshStatus,themeId,setThemeId }) {
   const [tab, setTab] = useState("programmes");
+  const [espaceView, setEspaceView] = useState(null); // null | "crise" | "stats" | "meditations"
+
+  if (espaceView==="crise") return <CriseScreen goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="stats") return <StatsScreen completedDays={completedDays} goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="meditations") return <MeditationsScreen goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="bibliotheque") return <BibliothequeScreen goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="themes") return <ThemesScreen goBack={()=>setEspaceView(null)} themeId={themeId} setThemeId={setThemeId}/>;
+
 
   if (activeDay!==null && activeProgram!==null) {
     return <DayDetailView key={`${activeProgram}-${activeDay}`} activeProgram={activeProgram} activeDay={activeDay} completedDays={completedDays} markDayDone={markDayDone} onBack={()=>setActiveDay(null)}/>;
@@ -1048,8 +1088,15 @@ function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiu
       {tab==="espace"&&(
         <div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
-            {[["🎙️","Méditations"],["📊","Stats"],["🚨","Crise"],["🗓️","Parcours"],["📚","Bibliothèque"],["🎨","Thèmes"]].map(([ic,lb])=>(
-              <div key={lb} style={{background:"rgba(155,111,212,0.07)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:14,padding:"14px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+            {[
+              ["🎙️","Méditations","meditations"],
+              ["📊","Stats","stats"],
+              ["🚨","Crise","crise"],
+              ["🗓️","Parcours","programmes"],
+              ["📚","Bibliothèque","bibliotheque"],
+              ["🎨","Thèmes","themes"],
+            ].map(([ic,lb,key])=>(
+              <div key={lb} onClick={()=>{ if(key==="programmes") setTab("programmes"); else setEspaceView(key); }} style={{background:"rgba(155,111,212,0.07)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:14,padding:"14px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:"pointer"}}>
                 <span style={{fontSize:20}}>{ic}</span>
                 <p style={{color:"rgba(196,164,224,0.65)",fontSize:9,margin:0,textAlign:"center",letterSpacing:0.5}}>{lb}</p>
               </div>
@@ -1222,7 +1269,461 @@ function ProgramList({ indices, completedDays, setActiveProgram, isPremium, show
   );
 }
 
-// ─── BOTTOM NAV ───────────────────────────────────────────────────────────────
+// ─── CRISE SCREEN ─────────────────────────────────────────────────────────────
+const criseExercises = [
+  { id:"breath", emoji:"🌬️", title:"Respiration 4-7-8", duration:"3 min", color:"#9B6FD4",
+    steps:[
+      { text:"Expire complètement par la bouche pour vider tes poumons.", timer:3 },
+      { text:"Inspire doucement par le nez en comptant jusqu'à 4.", timer:4 },
+      { text:"Retiens ton souffle en comptant jusqu'à 7.", timer:7 },
+      { text:"Expire lentement par la bouche en comptant jusqu'à 8.", timer:8 },
+      { text:"Inspire à nouveau en comptant jusqu'à 4.", timer:4 },
+      { text:"Retiens ton souffle en comptant jusqu'à 7.", timer:7 },
+      { text:"Expire lentement en comptant jusqu'à 8.", timer:8 },
+      { text:"Encore une fois. Inspire... 4 secondes.", timer:4 },
+      { text:"Retiens... 7 secondes.", timer:7 },
+      { text:"Expire lentement... 8 secondes.", timer:8 },
+      { text:"C'est terminé. Remarque la douceur qui s'est installée en toi.", timer:6 },
+    ]
+  },
+  { id:"anchor", emoji:"⚓", title:"Ancrage par les 5 sens", duration:"4 min", color:"#C4A4E0",
+    steps:[
+      { text:"Pose tes pieds bien à plat sur le sol. Sens ce contact, ce poids.", timer:8 },
+      { text:"Regarde autour de toi et nomme 5 choses que tu vois.", timer:12 },
+      { text:"Nomme 4 choses que tu peux toucher en ce moment.", timer:10 },
+      { text:"Nomme 3 sons que tu peux entendre, même très légers.", timer:10 },
+      { text:"Nomme 2 choses que tu peux sentir — une odeur, même subtile.", timer:8 },
+      { text:"Nomme 1 chose que tu peux goûter, ou simplement remarquer dans ta bouche.", timer:8 },
+      { text:"Tu es ici. Tu es en sécurité. Ce moment précis est stable.", timer:8 },
+    ]
+  },
+  { id:"comfort", emoji:"💜", title:"Phrases de réconfort", duration:"3 min", color:"#D4AF7A",
+    steps:[
+      { text:"Pose une main sur ton cœur. Sens sa chaleur.", timer:8 },
+      { text:"Répète intérieurement : \"Ce que je ressens est temporaire. Ça passera.\"", timer:10 },
+      { text:"Répète : \"Je n'ai pas besoin de tout gérer maintenant. Juste respirer.\"", timer:10 },
+      { text:"Répète : \"Je suis plus forte que ce moment difficile.\"", timer:10 },
+      { text:"Répète : \"Je mérite de la douceur, surtout maintenant.\"", timer:10 },
+      { text:"Répète une dernière fois celle qui t'a le plus touchée.", timer:12 },
+    ]
+  },
+  { id:"anger", emoji:"🔥", title:"Libérer la colère", duration:"4 min", color:"#E89B9B",
+    steps:[
+      { text:"Prends une feuille ou note sur ton téléphone — on va écrire sans filtre.", timer:6 },
+      { text:"Écris tout ce que tu ressens, sans censure. Colère, frustration, injustice. Tout.", timer:30 },
+      { text:"Maintenant relis ce que tu as écrit. Reconnais que ces émotions sont valides.", timer:12 },
+      { text:"Prends une grande inspiration... et expire lentement en imaginant relâcher un peu de cette tension.", timer:8 },
+      { text:"Écris une phrase : \"J'ai le droit de ressentir ça. Et je choisis de ne pas rester coincée ici.\"", timer:15 },
+      { text:"Tu peux garder ce que tu as écrit, ou l'effacer. Les deux sont valables.", timer:8 },
+    ]
+  },
+  { id:"body", emoji:"🌿", title:"Revenir à son corps", duration:"3 min", color:"#A8C5A0",
+    steps:[
+      { text:"Ferme les yeux. Prends deux respirations normales, sans rien forcer.", timer:10 },
+      { text:"Porte ton attention sur tes pieds. Sens-les, lourds, posés.", timer:8 },
+      { text:"Remonte vers tes jambes, ton ventre. Remarque les tensions sans les juger.", timer:10 },
+      { text:"Continue vers ta poitrine. Le mouvement de ta respiration, ce léger soulèvement.", timer:10 },
+      { text:"Tes épaules — laisse-les descendre. Ton visage — laisse chaque muscle se relâcher.", timer:10 },
+      { text:"Ton corps est là. Il te porte. Tu es en sécurité ici, maintenant.", timer:10 },
+    ]
+  },
+];
+
+function CriseExerciseView({ exercise, onBack }) {
+  const [step, setStep] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(exercise.steps[0].timer);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!running) return;
+    if (timeLeft <= 0) {
+      if (step < exercise.steps.length - 1) {
+        const next = step + 1;
+        setStep(next);
+        setTimeLeft(exercise.steps[next].timer);
+      } else {
+        setRunning(false);
+        setDone(true);
+      }
+      return;
+    }
+    const t = setTimeout(() => setTimeLeft(v => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [running, timeLeft, step]);
+
+  const current = exercise.steps[step];
+  const progress = ((step) / exercise.steps.length) * 100 + ((1 - timeLeft / current.timer) / exercise.steps.length) * 100;
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={onBack} label="← Exercices"/>
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <span style={{fontSize:32}}>{exercise.emoji}</span>
+        <h2 style={{...s.screenTitle,fontSize:18,margin:"6px 0 2px"}}>{exercise.title}</h2>
+      </div>
+
+      <div style={{height:3,background:"rgba(196,164,224,0.1)",borderRadius:2,overflow:"hidden",marginBottom:20}}>
+        <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${exercise.color},#C4A4E0)`,borderRadius:2,transition:"width 0.5s"}}/>
+      </div>
+
+      {!done ? (
+        <>
+          <div style={{...s.mysticalCard,minHeight:120,justifyContent:"center",alignItems:"center",textAlign:"center",marginBottom:16}}>
+            <p style={{color:"rgba(232,213,245,0.9)",fontSize:15,lineHeight:1.7,fontStyle:"italic",margin:0}}>{current.text}</p>
+          </div>
+
+          {running && (
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <span style={{color:exercise.color,fontSize:32,fontWeight:"bold"}}>{timeLeft}</span>
+              <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:"2px 0 0",letterSpacing:1}}>secondes</p>
+            </div>
+          )}
+
+          {!running ? (
+            <button style={{...s.validateBtn,width:"100%"}} onClick={()=>setRunning(true)}>
+              {step===0?"Commencer":"Continuer"}
+            </button>
+          ) : (
+            <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={()=>setRunning(false)}>Pause</button>
+          )}
+        </>
+      ) : (
+        <div style={{textAlign:"center",paddingTop:16}}>
+          <div style={{fontSize:40,marginBottom:12}}>✨</div>
+          <p style={{color:"rgba(232,213,245,0.9)",fontSize:16,fontStyle:"italic",lineHeight:1.7,marginBottom:20}}>
+            Tu as traversé cet exercice. C'est déjà beaucoup.
+          </p>
+          <button style={{...s.validateBtn,width:"100%",marginBottom:10}} onClick={()=>{setStep(0);setTimeLeft(exercise.steps[0].timer);setRunning(false);setDone(false);}}>
+            Recommencer
+          </button>
+          <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={onBack}>← Retour aux exercices</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CriseGuidedView({ onBack }) {
+  const guided = [criseExercises[0], criseExercises[1], criseExercises[2]];
+  const [phase, setPhase] = useState(0);
+  const [exDone, setExDone] = useState(false);
+
+  if (exDone && phase < guided.length - 1) {
+    return (
+      <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+        <span style={{fontSize:36}}>✓</span>
+        <p style={{color:"rgba(232,213,245,0.9)",fontSize:15,fontStyle:"italic",lineHeight:1.7,margin:"16px 0 24px"}}>
+          Bien. Tu avances. L'étape suivante va t'aider à te reconnecter à toi-même.
+        </p>
+        <button style={{...s.validateBtn,width:"100%"}} onClick={()=>{setPhase(p=>p+1);setExDone(false);}}>
+          Continuer →
+        </button>
+      </div>
+    );
+  }
+
+  if (exDone && phase === guided.length - 1) {
+    return (
+      <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+        <span style={{fontSize:40}}>🌟</span>
+        <p style={{color:"rgba(232,213,245,0.9)",fontSize:16,fontStyle:"italic",lineHeight:1.7,margin:"16px 0 8px"}}>
+          Tu as traversé ce moment difficile.
+        </p>
+        <p style={{color:"rgba(196,164,224,0.55)",fontSize:13,lineHeight:1.6,margin:"0 0 24px",fontStyle:"italic"}}>
+          Prends le temps de te féliciter — c'était courageux.
+        </p>
+        <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={onBack}>← Retour</button>
+      </div>
+    );
+  }
+
+  return <CriseExerciseView exercise={guided[phase]} onBack={()=>{ if(phase===0) onBack(); else {setPhase(p=>p-1);setExDone(false);} }} onDone={()=>setExDone(true)}/>;
+}
+
+function CriseScreen({ goBack }) {
+  const [view, setView] = useState("home"); // home | guided | pick | exercise:id
+  const [activeEx, setActiveEx] = useState(null);
+
+  if (view==="exercise" && activeEx) {
+    return <CriseExerciseView exercise={activeEx} onBack={()=>setView("pick")}/>;
+  }
+  if (view==="guided") {
+    return <CriseGuidedView onBack={()=>setView("home")}/>;
+  }
+  if (view==="pick") {
+    return (
+      <div style={s.screen}>
+        <BackBtn goBack={()=>setView("home")} label="← Retour"/>
+        <h2 style={s.screenTitle}>Je choisis</h2>
+        <p style={s.screenSub}>Quel exercice te parle en ce moment ?</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {criseExercises.map(ex=>(
+            <button key={ex.id} onClick={()=>{setActiveEx(ex);setView("exercise");}} style={{background:"rgba(155,111,212,0.05)",border:`1px solid ${ex.color}30`,borderRadius:14,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",textAlign:"left"}}>
+              <span style={{fontSize:24,flexShrink:0}}>{ex.emoji}</span>
+              <div>
+                <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontFamily:"Georgia,serif"}}>{ex.title}</p>
+                <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:0,letterSpacing:0.5}}>{ex.duration}</p>
+              </div>
+              <span style={{color:ex.color,marginLeft:"auto",fontSize:16}}>→</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <div style={{textAlign:"center",padding:"10px 0 20px"}}>
+        <span style={{fontSize:36}}>🫂</span>
+        <h2 style={{...s.screenTitle,marginTop:8}}>Mode Crise</h2>
+        <p style={{color:"rgba(196,164,224,0.55)",fontSize:13,lineHeight:1.6,fontStyle:"italic",margin:"4px 0 0"}}>
+          Tu n'es pas seule. On est là.
+        </p>
+      </div>
+      <Divider/>
+      <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:16}}>
+        <button onClick={()=>setView("guided")} style={{...s.mysticalCard,cursor:"pointer",textAlign:"left",border:"1px solid rgba(155,111,212,0.3)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+            <span style={{fontSize:24}}>⚡</span>
+            <p style={{color:"rgba(232,213,245,0.95)",fontSize:15,fontFamily:"Georgia,serif",fontStyle:"italic",margin:0}}>Aide-moi maintenant</p>
+          </div>
+          <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,lineHeight:1.5,margin:0}}>Je te guide étape par étape — respiration, ancrage, réconfort. Tu n'as rien à choisir.</p>
+        </button>
+        <button onClick={()=>setView("pick")} style={{...s.mysticalCard,cursor:"pointer",textAlign:"left",border:"1px solid rgba(196,164,224,0.2)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+            <span style={{fontSize:24}}>🌿</span>
+            <p style={{color:"rgba(232,213,245,0.95)",fontSize:15,fontFamily:"Georgia,serif",fontStyle:"italic",margin:0}}>Je choisis mon exercice</p>
+          </div>
+          <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,lineHeight:1.5,margin:0}}>Respiration, ancrage, réconfort, colère, corps — choisis ce dont tu as besoin.</p>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── STATS SCREEN ─────────────────────────────────────────────────────────────
+function StatsScreen({ completedDays, goBack }) {
+  const totalDone = Object.keys(completedDays).length;
+  const programStats = programs.map((p, i) => {
+    const total = p.duration;
+    const done = Object.keys(completedDays).filter(k => k.startsWith(`${i}-`)).length;
+    return { ...p, done, total, pct: Math.round((done / total) * 100) };
+  });
+  const started = programStats.filter(p => p.done > 0);
+  const streak = Math.min(totalDone, 7);
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Mes statistiques</h2>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
+        {[
+          { label:"Jours complétés", value:totalDone, color:"#9B6FD4" },
+          { label:"Parcours commencés", value:started.length, color:"#C4A4E0" },
+          { label:"Jours d'affilée", value:streak, color:"#D4AF7A" },
+        ].map(({label,value,color})=>(
+          <div key={label} style={{background:"rgba(155,111,212,0.05)",border:"1px solid rgba(196,164,224,0.12)",borderRadius:14,padding:"14px 8px",textAlign:"center"}}>
+            <p style={{color,fontSize:28,fontWeight:"bold",margin:"0 0 4px",lineHeight:1}}>{value}</p>
+            <p style={{color:"rgba(196,164,224,0.45)",fontSize:9,margin:0,letterSpacing:0.5,lineHeight:1.4}}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <SectionLabel color="#C4A4E0">Progression par parcours</SectionLabel>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
+        {programStats.map((p,i)=>(
+          <div key={i} style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:12,padding:"12px 14px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <p style={{color:"rgba(232,213,245,0.85)",fontSize:12,margin:0,fontStyle:"italic"}}>{p.emoji} {p.theme}</p>
+              <span style={{color:"rgba(196,164,224,0.5)",fontSize:10}}>{p.done}/{p.total}j</span>
+            </div>
+            <div style={{height:4,background:"rgba(196,164,224,0.08)",borderRadius:2,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${p.pct}%`,background:"linear-gradient(90deg,#9B6FD4,#D4AF7A)",borderRadius:2,transition:"width 0.5s"}}/>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── MEDITATIONS SCREEN ───────────────────────────────────────────────────────
+function MeditationsScreen({ goBack }) {
+  const [active, setActive] = useState(null);
+
+  const allMeds = programs.flatMap((p, pi) =>
+    p.pools.meditation.map((m, mi) => ({ ...m, program: p.theme, emoji: p.emoji, color: p.color, key:`${pi}-${mi}` }))
+  );
+
+  if (active) {
+    return (
+      <div style={s.screen}>
+        <BackBtn goBack={()=>setActive(null)} label="← Méditations"/>
+        <div style={{textAlign:"center",marginBottom:18}}>
+          <span style={{fontSize:28}}>{active.emoji}</span>
+          <h2 style={{...s.screenTitle,fontSize:17,margin:"8px 0 2px"}}>{active.titre}</h2>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:11,margin:"0 0 4px",letterSpacing:0.5}}>{active.program}</p>
+          <span style={{color:"rgba(196,164,224,0.4)",fontSize:11}}>⏱ {active.durée}</span>
+        </div>
+        <Divider/>
+        <div style={{...s.mysticalCard,marginTop:14}}>
+          <SectionLabel color="#9B6FD4">Description</SectionLabel>
+          <p style={{color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,fontStyle:"italic",margin:0}}>{active.desc}</p>
+        </div>
+        <div style={{...s.mysticalCard,marginTop:4,background:"rgba(212,175,122,0.04)",border:"1px solid rgba(212,175,122,0.15)"}}>
+          <p style={{color:"rgba(212,175,122,0.7)",fontSize:12,lineHeight:1.6,fontStyle:"italic",margin:0,textAlign:"center"}}>
+            🎙️ Pour écouter cette méditation, lance l'enregistrement audio correspondant dans ton application de lecture préférée.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Méditations guidées</h2>
+      <p style={s.screenSub}>{allMeds.length} méditations · 8 parcours</p>
+      {programs.map((p, pi) => (
+        <div key={pi} style={{marginBottom:18}}>
+          <SectionLabel color={p.color}>{p.emoji} {p.theme}</SectionLabel>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:10}}>
+            {p.pools.meditation.map((m, mi) => (
+              <button key={mi} onClick={()=>setActive({...m,program:p.theme,emoji:p.emoji,color:p.color})} style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",textAlign:"left"}}>
+                <span style={{fontSize:20,flexShrink:0}}>🎙️</span>
+                <div style={{flex:1}}>
+                  <p style={{color:"rgba(232,213,245,0.9)",fontSize:12,margin:"0 0 2px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{m.titre}</p>
+                  <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:0,letterSpacing:0.5}}>{m.durée}</p>
+                </div>
+                <span style={{color:"rgba(196,164,224,0.3)",fontSize:14}}>›</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── BIBLIOTHÈQUE SCREEN ──────────────────────────────────────────────────────
+function BibliothequeScreen({ goBack }) {
+  const [tab, setTab] = useState("lire");
+  const [activeItem, setActiveItem] = useState(null);
+
+  if (activeItem && tab==="lire") return (
+    <div style={s.screen}>
+      <BackBtn goBack={()=>setActiveItem(null)} label="← Bibliothèque"/>
+      <div style={{marginBottom:16}}>
+        <h2 style={{...s.screenTitle,fontSize:18}}>{activeItem.titre}</h2>
+        <p style={{color:"rgba(196,164,224,0.45)",fontSize:11,margin:"0 0 16px",letterSpacing:0.5}}>{activeItem.auteur}</p>
+      </div>
+      <Divider/>
+      <div style={{...s.mysticalCard,marginTop:16}}>
+        <p style={{color:"rgba(232,213,245,0.9)",fontSize:14,lineHeight:1.8,fontStyle:"italic",margin:0}}>« {activeItem.extrait} »</p>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:14}}>
+        {activeItem.tags.map(tag=>(
+          <span key={tag} style={{background:"rgba(155,111,212,0.1)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:8,padding:"4px 10px",color:"rgba(196,164,224,0.6)",fontSize:10,letterSpacing:0.5}}>#{tag}</span>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Bibliothèque</h2>
+      <div style={{display:"flex",borderBottom:"1px solid rgba(196,164,224,0.1)",marginBottom:18}}>
+        {[["lire","📖 Lire"],["ecouter","🎧 Écouter"],["regarder","🎬 Regarder"]].map(([k,l])=>(
+          <button key={k} onClick={()=>{setTab(k);setActiveItem(null);}} style={{flex:1,background:"transparent",border:"none",padding:"9px 0",fontSize:10,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:0.5,color:tab===k?"#C4A4E0":"rgba(196,164,224,0.35)",borderBottom:tab===k?"1px solid #9B6FD4":"1px solid transparent"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {tab==="lire" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {bibliotheque.lire.map((item,i)=>(
+            <button key={i} onClick={()=>setActiveItem(item)} style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px",display:"flex",flexDirection:"column",gap:4,cursor:"pointer",textAlign:"left"}}>
+              <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:0,fontFamily:"Georgia,serif",fontStyle:"italic"}}>{item.titre}</p>
+              <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:0,letterSpacing:0.3}}>{item.auteur}</p>
+              <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,margin:"4px 0 0",lineHeight:1.5}}>« {item.extrait.slice(0,80)}… »</p>
+            </button>
+          ))}
+        </div>
+      )}
+      {tab==="ecouter" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {bibliotheque.ecouter.map((item,i)=>(
+            <a key={i} href={item.lien} target="_blank" rel="noopener noreferrer" style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px",display:"flex",gap:12,alignItems:"flex-start",textDecoration:"none"}}>
+              <span style={{fontSize:22,flexShrink:0}}>🎧</span>
+              <div style={{flex:1}}>
+                <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{item.titre}</p>
+                <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:"0 0 6px",letterSpacing:0.3}}>{item.auteur} · {item.plateforme}</p>
+                <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,margin:0,lineHeight:1.5}}>{item.desc}</p>
+              </div>
+              <span style={{color:"rgba(196,164,224,0.3)",fontSize:14,flexShrink:0}}>↗</span>
+            </a>
+          ))}
+        </div>
+      )}
+      {tab==="regarder" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {bibliotheque.regarder.map((item,i)=>(
+            <a key={i} href={item.lien} target="_blank" rel="noopener noreferrer" style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px",display:"flex",gap:12,alignItems:"flex-start",textDecoration:"none"}}>
+              <span style={{fontSize:22,flexShrink:0}}>🎬</span>
+              <div style={{flex:1}}>
+                <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{item.titre}</p>
+                <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:"0 0 6px",letterSpacing:0.3}}>{item.auteur} · {item.duree}</p>
+                <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,margin:0,lineHeight:1.5}}>{item.desc}</p>
+              </div>
+              <span style={{color:"rgba(196,164,224,0.3)",fontSize:14,flexShrink:0}}>↗</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── THÈMES SCREEN ────────────────────────────────────────────────────────────
+function ThemesScreen({ goBack, themeId, setThemeId }) {
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Thèmes</h2>
+      <p style={s.screenSub}>Choisis l'ambiance qui te ressemble.</p>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {Object.values(themes).map(th=>{
+          const active = th.id===themeId;
+          return (
+            <button key={th.id} onClick={()=>setThemeId(th.id)} style={{background:active?th.card:"rgba(155,111,212,0.03)",border:`1px solid ${active?th.primary:th.border}`,borderRadius:16,padding:"16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",textAlign:"left",transition:"all 0.2s"}}>
+              <div style={{width:44,height:44,borderRadius:12,background:th.phoneBg,border:`2px solid ${th.primary}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{fontSize:20}}>{th.emoji}</span>
+              </div>
+              <div style={{flex:1}}>
+                <p style={{color:active?th.text:"rgba(232,213,245,0.8)",fontSize:14,margin:"0 0 6px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{th.name}</p>
+                <div style={{display:"flex",gap:6}}>
+                  {[th.primary,th.light,th.gold,th.green].map((c,i)=>(
+                    <div key={i} style={{width:14,height:14,borderRadius:"50%",background:c}}/>
+                  ))}
+                </div>
+              </div>
+              {active && <span style={{color:th.primary,fontSize:18,flexShrink:0}}>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p style={{color:"rgba(196,164,224,0.3)",fontSize:10,textAlign:"center",margin:"20px 0 0",fontStyle:"italic",lineHeight:1.6}}>
+        Le thème s'applique immédiatement à toute l'application.
+      </p>
+    </div>
+  );
+}
+
 function BottomNav({ screen, onNavigate, isPremium }) {
   const items = [
     { label:"Accueil", key:"home", icon:<CompassRose size={18} color={screen==="home"?"#C4A4E0":"rgba(196,164,224,0.35)"}/> },
@@ -1245,6 +1746,80 @@ function BottomNav({ screen, onNavigate, isPremium }) {
 }
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
+// ─── THÈMES ───────────────────────────────────────────────────────────────────
+const themes = {
+  mystique: {
+    id:"mystique", name:"Nuit mystique", emoji:"🌙",
+    bg:"#060410", phoneBg:"#0D0A12", primary:"#9B6FD4", light:"#C4A4E0",
+    text:"rgba(232,213,245,0.9)", textDim:"rgba(196,164,224,0.5)",
+    gold:"#D4AF7A", green:"#A8C5A0",
+    glow1:"rgba(155,111,212,0.08)", glow2:"rgba(196,164,224,0.06)", glow3:"rgba(212,175,122,0.05)",
+    border:"rgba(196,164,224,0.15)", card:"rgba(155,111,212,0.05)",
+  },
+  rosee: {
+    id:"rosee", name:"Douceur rosée", emoji:"🌸",
+    bg:"#12080E", phoneBg:"#1A0C14", primary:"#C4709B", light:"#E4A8C4",
+    text:"rgba(245,225,235,0.9)", textDim:"rgba(220,180,200,0.5)",
+    gold:"#D4907A", green:"#B8A8C0",
+    glow1:"rgba(196,112,155,0.08)", glow2:"rgba(228,168,196,0.06)", glow3:"rgba(212,144,122,0.05)",
+    border:"rgba(220,168,196,0.15)", card:"rgba(196,112,155,0.05)",
+  },
+  ocean: {
+    id:"ocean", name:"Océan profond", emoji:"🌊",
+    bg:"#060C12", phoneBg:"#0A1420", primary:"#4A8FD4", light:"#7FC0E0",
+    text:"rgba(220,238,248,0.9)", textDim:"rgba(160,200,230,0.5)",
+    gold:"#7AB8C8", green:"#6ACFB8",
+    glow1:"rgba(74,143,212,0.08)", glow2:"rgba(127,192,224,0.06)", glow3:"rgba(106,207,184,0.05)",
+    border:"rgba(127,192,224,0.15)", card:"rgba(74,143,212,0.05)",
+  },
+  foret: {
+    id:"foret", name:"Forêt calme", emoji:"🌿",
+    bg:"#060C08", phoneBg:"#0A1410", primary:"#5A9B6F", light:"#8EC4A0",
+    text:"rgba(220,242,228,0.9)", textDim:"rgba(160,210,178,0.5)",
+    gold:"#C8B870", green:"#8EC4A0",
+    glow1:"rgba(90,155,111,0.08)", glow2:"rgba(142,196,160,0.06)", glow3:"rgba(200,184,112,0.05)",
+    border:"rgba(142,196,160,0.15)", card:"rgba(90,155,111,0.05)",
+  },
+  doree: {
+    id:"doree", name:"Lumière dorée", emoji:"☀️",
+    bg:"#120C04", phoneBg:"#1C1408", primary:"#C49840", light:"#E0C478",
+    text:"rgba(248,238,218,0.9)", textDim:"rgba(220,196,158,0.5)",
+    gold:"#E0A060", green:"#B8C898",
+    glow1:"rgba(196,152,64,0.08)", glow2:"rgba(224,196,120,0.06)", glow3:"rgba(224,160,96,0.05)",
+    border:"rgba(224,196,120,0.15)", card:"rgba(196,152,64,0.05)",
+  },
+};
+
+// ─── BIBLIOTHÈQUE ─────────────────────────────────────────────────────────────
+const bibliotheque = {
+  lire: [
+    { titre:"L'art de l'autocompassion", auteur:"Kristin Neff", extrait:"Se montrer de la compassion envers soi-même, c'est reconnaître que souffrir, échouer, et se sentir inadéquat font partie de l'expérience humaine partagée.", tags:["compassion","soi"] },
+    { titre:"Pourquoi les zebras n'ont pas d'ulcères", auteur:"Robert Sapolsky", extrait:"Le stress n'est pas ce qui nous arrive — c'est la façon dont notre corps y répond. Et nous avons plus de contrôle sur cette réponse qu'on ne le pense.", tags:["stress","corps"] },
+    { titre:"La puissance du moment présent", auteur:"Eckhart Tolle", extrait:"Le moment présent est le seul endroit où la vie existe vraiment. Tout le reste — passé et futur — n'est qu'une projection de l'esprit.", tags:["pleine conscience","présent"] },
+    { titre:"Oser être imparfaite", auteur:"Brené Brown", extrait:"La vulnérabilité n'est pas une faiblesse. C'est notre mesure la plus précise du courage.", tags:["vulnérabilité","courage"] },
+    { titre:"Le pouvoir des habitudes", auteur:"Charles Duhigg", extrait:"Les habitudes ne sont jamais vraiment supprimées — elles sont remplacées. Comprendre la boucle habitude-routine-récompense, c'est reprendre le contrôle.", tags:["habitudes","changement"] },
+    { titre:"Pleine catastrophe, pleine vie", auteur:"Jon Kabat-Zinn", extrait:"La pleine conscience signifie faire attention d'une manière particulière : délibérément, dans le moment présent, et sans jugement.", tags:["méditation","pleine conscience"] },
+    { titre:"Les quatre accords toltèques", auteur:"Don Miguel Ruiz", extrait:"Parle avec intégrité. Ne dis que ce que tu penses vraiment. Évite d'utiliser la parole dans le sens opposé à la vérité.", tags:["sagesse","parole"] },
+    { titre:"Feeling Good", auteur:"David D. Burns", extrait:"Ce ne sont pas les événements qui provoquent nos émotions, mais les pensées que nous avons sur ces événements. Et les pensées peuvent changer.", tags:["pensées","émotions"] },
+  ],
+  ecouter: [
+    { titre:"Méditer jour après jour", auteur:"Christophe André", desc:"Un guide audio accessible pour intégrer la méditation dans le quotidien, avec des exercices de pleine conscience.", lien:"https://open.spotify.com/show/7oKXOpimUrzurUSaGKGMEC", plateforme:"Spotify" },
+    { titre:"Feeling Good Podcast", auteur:"David D. Burns", desc:"Des épisodes sur la thérapie cognitive, l'estime de soi et la gestion des émotions difficiles.", lien:"https://open.spotify.com/show/3Yn6GKkAigKzR2XNIJBAXF", plateforme:"Spotify" },
+    { titre:"On Purpose with Jay Shetty", auteur:"Jay Shetty", desc:"Des conversations profondes sur le sens de la vie, les relations et le développement personnel.", lien:"https://open.spotify.com/show/5EqqB52m2bsr4k1Ii7sStc", plateforme:"Spotify" },
+    { titre:"The Happiness Lab", auteur:"Dr. Laurie Santos", desc:"Une chercheuse de Yale déconstruit les idées reçues sur le bonheur avec des recherches scientifiques.", lien:"https://open.spotify.com/show/3i5TCKhc6GY42pOWkpWveG", plateforme:"Spotify" },
+    { titre:"Huberman Lab", auteur:"Andrew Huberman", desc:"La neuroscience au service du bien-être — sommeil, stress, dopamine, émotions. Rigoureux et accessible.", lien:"https://open.spotify.com/show/79CkJF3UJTHFV8Dse3Oy0P", plateforme:"Spotify" },
+    { titre:"Méditations guidées ASMR", auteur:"Détente Guidée", desc:"Des méditations en français, douces et apaisantes, pour s'endormir ou décompresser.", lien:"https://open.spotify.com/show/6OBjFOCCBuOwsSY4XbcVWJ", plateforme:"Spotify" },
+  ],
+  regarder: [
+    { titre:"The Power of Vulnerability", auteur:"Brené Brown · TED", desc:"La conférence TED la plus vue sur la vulnérabilité, le courage et le lien humain. Un incontournable.", lien:"https://www.youtube.com/watch?v=iCvmsMzlF7o", duree:"20 min" },
+    { titre:"How to Make Stress Your Friend", auteur:"Kelly McGonigal · TED", desc:"Une nouvelle façon de voir le stress — non pas comme un ennemi, mais comme un signal de vitalité.", lien:"https://www.youtube.com/watch?v=RcGyVTAoXEU", duree:"14 min" },
+    { titre:"The Art of Being Alone", auteur:"Aloneness · YouTube", desc:"Une méditation visuelle sur la solitude choisie, la présence à soi et l'art de se retrouver.", lien:"https://www.youtube.com/watch?v=c0KYU2j0TM4", duree:"10 min" },
+    { titre:"Self-Compassion avec Kristin Neff", auteur:"Kristin Neff · YouTube", desc:"La chercheuse pionnière de l'autocompassion explique simplement comment changer son rapport à soi.", lien:"https://www.youtube.com/watch?v=IvtZBUSplr4", duree:"18 min" },
+    { titre:"Méditation guidée — Lâcher prise", auteur:"Petit Bambou · YouTube", desc:"Une méditation guidée en français pour apprendre à lâcher ce qu'on contrôle pas.", lien:"https://www.youtube.com/watch?v=W19PdslW7iw", duree:"12 min" },
+    { titre:"Why We All Need to Practice Emotional First Aid", auteur:"Guy Winch · TED", desc:"Comment prendre soin de ses blessures émotionnelles avec autant de sérieux que ses blessures physiques.", lien:"https://www.youtube.com/watch?v=-rc8gJFCJBY", duree:"17 min" },
+  ],
+};
+
 const s = {
   root:{minHeight:"100vh",background:"#060410",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Georgia,'Times New Roman',serif",position:"relative",overflow:"hidden",padding:"20px 0"},
   glow1:{position:"fixed",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(155,111,212,0.08) 0%,transparent 70%)",top:"-150px",right:"-150px",pointerEvents:"none"},
@@ -1290,9 +1865,7 @@ const s = {
   navItem:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"0 2px"},
 };
 
-
 ReactDOM.createRoot(document.getElementById("root")).render(<LumiereApp/>);
-
 </script>
 </body>
 </html>
