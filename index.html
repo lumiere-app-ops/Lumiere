@@ -532,6 +532,44 @@ function LumiereApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [espaceViewGlobal, setEspaceViewGlobal] = useState(null);
 
+  // ── Journal historique (Supabase) ──
+  const [journalEntries, setJournalEntries] = useState([]);
+
+  const loadJournalEntries = async () => {
+    if (DEMO_MODE || !session?.user) return;
+    const { data } = await supabase.from("journal_entries").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+    if (data) setJournalEntries(data);
+  };
+
+  const saveJournalToSupabase = async (text, prompt) => {
+    if (DEMO_MODE || !session?.user || !text.trim()) return;
+    await supabase.from("journal_entries").insert({ user_id: session.user.id, content: text, prompt });
+    loadJournalEntries();
+  };
+
+  // ── Affirmations favorites (Supabase) ──
+  const [favorites, setFavorites] = useState([]);
+
+  const loadFavorites = async () => {
+    if (DEMO_MODE || !session?.user) return;
+    const { data } = await supabase.from("favorites").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+    if (data) setFavorites(data);
+  };
+
+  const toggleFavorite = async (affirmation) => {
+    if (DEMO_MODE) return;
+    const existing = favorites.find(f => f.affirmation === affirmation);
+    if (existing) {
+      await supabase.from("favorites").delete().eq("id", existing.id);
+      setFavorites(prev => prev.filter(f => f.id !== existing.id));
+    } else {
+      const { data } = await supabase.from("favorites").insert({ user_id: session.user.id, affirmation }).select().single();
+      if (data) setFavorites(prev => [data, ...prev]);
+    }
+  };
+
+  const isFavorite = (affirmation) => favorites.some(f => f.affirmation === affirmation);
+
   // ── Authentification & statut premium (Supabase) ──
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -552,8 +590,8 @@ function LumiereApp() {
 
   useEffect(() => {
     if (DEMO_MODE) return;
-    if (session?.user) refreshProfile();
-    else setProfile(null);
+    if (session?.user) { refreshProfile(); loadJournalEntries(); loadFavorites(); }
+    else { setProfile(null); setJournalEntries([]); setFavorites([]); }
   }, [session]);
 
   const handleLogout = () => { if (!DEMO_MODE) supabase.auth.signOut(); };
@@ -569,7 +607,13 @@ function LumiereApp() {
 
   const nextAff = () => setAffIdx(i=>(i+1)%affirmations.length);
   const nextPrompt = () => setPromptIdx(i=>(i+1)%prompts.length);
-  const saveJournal = () => { if (journalText.trim()) { setSaved(true); setTimeout(()=>setSaved(false),2500); } };
+  const saveJournal = () => {
+    if (journalText.trim()) {
+      setSaved(true);
+      saveJournalToSupabase(journalText, prompts[promptIdx]);
+      setTimeout(()=>setSaved(false),2500);
+    }
+  };
   const resetPardon = () => { setPardonTarget(null); setPardonStep(0); setPardonTexts(["","",""]); setPardonDone(false); };
   const stripeLinks = {
     monthly: "https://buy.stripe.com/dRmfZh0wd2HRgYX4RN3Je00",
@@ -640,14 +684,16 @@ function LumiereApp() {
           {!DEMO_MODE && authChecked && !session && <AuthScreen onAuthed={()=>{}}/>}
           {(DEMO_MODE || (authChecked && session)) && (
             <>
-              {screen==="home" && <HomeScreen affirmation={affirmations[affIdx]} onNextAff={nextAff} streak={streak} onNavigate={navigate} isPremium={isPremium}/>}
+              {screen==="home" && <HomeScreen affirmation={affirmations[affIdx]} onNextAff={nextAff} streak={streak} onNavigate={navigate} isPremium={isPremium} isFavorite={isFavorite} onToggleFavorite={toggleFavorite}/>}
               {screen==="parcours" && <ParcoursScreen activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} goBack={()=>goBack()} onGoPremium={()=>navigate("premium")}/>}
               {screen==="humeur" && <HumeurScreen selected={selectedMood} setSelected={setSelectedMood} goBack={()=>goBack()}/>}
-              {screen==="journal" && <JournalScreen text={journalText} setText={setJournalText} prompt={prompts[promptIdx]} onNextPrompt={nextPrompt} onSave={saveJournal} saved={saved} goBack={()=>goBack()}/>}
+              {screen==="journal" && <JournalScreen text={journalText} setText={setJournalText} prompt={prompts[promptIdx]} onNextPrompt={nextPrompt} onSave={saveJournal} saved={saved} goBack={()=>goBack()} entries={journalEntries} demoMode={DEMO_MODE}/>}
               {screen==="exercices" && <ExercicesScreen exercises={exercises} breathing={breathing} breathPhase={breathPhase} onStartBreath={runBreath} goBack={()=>goBack()}/>}
               {screen==="crise" && <CriseScreen goBack={()=>goBack()}/>}
+              {screen==="ritual" && <RitualScreen goBack={()=>goBack()} isPremium={isPremium} onGoPremium={()=>navigate("premium")}/>}
+              {screen==="communaute" && <CommunityScreen goBack={()=>goBack()} session={session} demoMode={DEMO_MODE}/>}
               {screen==="pardon" && <PardonScreen pardonTarget={pardonTarget} setPardonTarget={setPardonTarget} pardonStep={pardonStep} setPardonStep={setPardonStep} pardonTexts={pardonTexts} setPardonTexts={setPardonTexts} pardonAffIdx={pardonAffIdx} setPardonAffIdx={setPardonAffIdx} pardonDone={pardonDone} setPardonDone={setPardonDone} goBack={()=>goBack(resetPardon)}/>}
-              {screen==="premium" && <PremiumScreen isPremium={isPremium} premiumPlan={premiumPlan} setPremiumPlan={setPremiumPlan} onSubscribe={handleSubscribe} premiumSuccess={premiumSuccess} goBack={()=>goBack()} setScreen={setScreen} activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} demoMode={DEMO_MODE} userEmail={session?.user?.email} onLogout={handleLogout} onRefreshStatus={refreshProfile} themeId={themeId} setThemeId={setThemeId} initialEspaceView={espaceViewGlobal} onClearEspaceView={()=>setEspaceViewGlobal(null)}/>}
+              {screen==="premium" && <PremiumScreen isPremium={isPremium} premiumPlan={premiumPlan} setPremiumPlan={setPremiumPlan} onSubscribe={handleSubscribe} premiumSuccess={premiumSuccess} goBack={()=>goBack()} setScreen={setScreen} activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} demoMode={DEMO_MODE} userEmail={session?.user?.email} onLogout={handleLogout} onRefreshStatus={refreshProfile} themeId={themeId} setThemeId={setThemeId} initialEspaceView={espaceViewGlobal} onClearEspaceView={()=>setEspaceViewGlobal(null)} favorites={favorites} journalEntries={journalEntries}/>}
             </>
           )}
         </div>
@@ -666,7 +712,8 @@ function BackBtn({ goBack, label }) {
 }
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
-function HomeScreen({ affirmation, onNextAff, streak, onNavigate, isPremium }) {
+function HomeScreen({ affirmation, onNextAff, streak, onNavigate, isPremium, isFavorite, onToggleFavorite }) {
+  const fav = isFavorite(affirmation);
   return (
     <div style={s.screen}>
       <div style={s.homeHeader}>
@@ -690,9 +737,14 @@ function HomeScreen({ affirmation, onNextAff, streak, onNavigate, isPremium }) {
         <CornerDecor pos="tl"/><CornerDecor pos="tr"/><CornerDecor pos="bl"/><CornerDecor pos="br"/>
         <SectionLabel color="#D4AF7A">Affirmation du jour</SectionLabel>
         <p style={s.affText}>"{affirmation}"</p>
-        <button style={s.affBtn} onClick={onNextAff}>
-          <StarIcon size={11} color="#9B6FD4"/> Nouvelle affirmation
-        </button>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button style={s.affBtn} onClick={onNextAff}>
+            <StarIcon size={11} color="#9B6FD4"/> Nouvelle affirmation
+          </button>
+          <button onClick={()=>onToggleFavorite(affirmation)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",padding:"4px",lineHeight:1,opacity:fav?1:0.4,transition:"opacity 0.2s"}} title={fav?"Retirer des favoris":"Ajouter aux favoris"}>
+            {fav?"💜":"🤍"}
+          </button>
+        </div>
       </div>
 
       <Divider/>
@@ -712,6 +764,18 @@ function HomeScreen({ affirmation, onNextAff, streak, onNavigate, isPremium }) {
           </button>
         ))}
       </div>
+
+      {isPremium && (
+        <button onClick={()=>onNavigate("ritual")} style={{...s.mysticalCard,width:"100%",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,border:"1px solid rgba(212,175,122,0.2)",marginBottom:10}}>
+          <span style={{fontSize:22}}>{new Date().getHours()<12?"🌅":new Date().getHours()<18?"☀️":"🌙"}</span>
+          <div style={{flex:1}}>
+            <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontStyle:"italic"}}>
+              {new Date().getHours()<12?"Rituel du matin":new Date().getHours()<18?"Pause du milieu de journée":"Rituel du soir"}
+            </p>
+            <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:0,letterSpacing:0.3}}>Commence ta routine guidée →</p>
+          </div>
+        </button>
+      )}
 
       {!isPremium ? (
         <button style={s.premiumBanner} onClick={()=>onNavigate("premium")}>
@@ -768,7 +832,14 @@ function HumeurScreen({ selected, setSelected, goBack }) {
 }
 
 // ─── JOURNAL ──────────────────────────────────────────────────────────────────
-function JournalScreen({ text, setText, prompt, onNextPrompt, onSave, saved, goBack }) {
+function JournalScreen({ text, setText, prompt, onNextPrompt, onSave, saved, goBack, entries, demoMode }) {
+  const [view, setView] = useState("write"); // write | history
+
+  const formatDate = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+  };
+
   return (
     <div style={s.screen}>
       <BackBtn goBack={goBack}/>
@@ -776,16 +847,51 @@ function JournalScreen({ text, setText, prompt, onNextPrompt, onSave, saved, goB
         <span style={{fontSize:22}}>📖</span>
         <h2 style={s.screenTitle}>Mon journal</h2>
       </div>
-      <Divider/>
-      <div style={s.mysticalCard}>
-        <SectionLabel color="#C4A4E0">Question du jour</SectionLabel>
-        <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,lineHeight:1.6,margin:"0 0 10px",fontStyle:"italic"}}>{prompt}</p>
-        <button style={s.ghostBtn} onClick={onNextPrompt}>Autre question →</button>
+
+      <div style={{display:"flex",borderBottom:"1px solid rgba(196,164,224,0.1)",marginBottom:16}}>
+        {[["write","✍️ Écrire"],["history","📚 Historique"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setView(k)} style={{flex:1,background:"transparent",border:"none",padding:"9px 0",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:0.5,color:view===k?"#C4A4E0":"rgba(196,164,224,0.35)",borderBottom:view===k?"1px solid #9B6FD4":"1px solid transparent"}}>
+            {l}
+          </button>
+        ))}
       </div>
-      <textarea style={s.textarea} placeholder="Écris librement, sans jugement..." value={text} onChange={e=>setText(e.target.value)}/>
-      <button style={{...s.validateBtn,width:"100%",marginTop:12}} onClick={onSave}>
-        {saved?"✓ Sauvegardé":"Sauvegarder"}
-      </button>
+
+      {view==="write" && (
+        <>
+          <div style={s.mysticalCard}>
+            <SectionLabel color="#C4A4E0">Question du jour</SectionLabel>
+            <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,lineHeight:1.6,margin:"0 0 10px",fontStyle:"italic"}}>{prompt}</p>
+            <button style={s.ghostBtn} onClick={onNextPrompt}>Autre question →</button>
+          </div>
+          <textarea style={s.textarea} placeholder="Écris librement, sans jugement..." value={text} onChange={e=>setText(e.target.value)}/>
+          <button style={{...s.validateBtn,width:"100%",marginTop:12}} onClick={onSave}>
+            {saved?"✓ Sauvegardé":"Sauvegarder"}
+          </button>
+        </>
+      )}
+
+      {view==="history" && (
+        <div>
+          {demoMode && (
+            <div style={{...s.mysticalCard,textAlign:"center",marginBottom:14}}>
+              <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,fontStyle:"italic",lineHeight:1.6}}>L'historique est disponible une fois connectée à ton compte.</p>
+            </div>
+          )}
+          {!demoMode && entries.length===0 && (
+            <div style={{textAlign:"center",padding:"32px 0"}}>
+              <span style={{fontSize:32}}>📝</span>
+              <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>Ton journal est vide pour l'instant.<br/>Commence à écrire pour retrouver tes entrées ici.</p>
+            </div>
+          )}
+          {!demoMode && entries.map(entry=>(
+            <div key={entry.id} style={{...s.mysticalCard,marginBottom:10}}>
+              <p style={{color:"rgba(212,175,122,0.6)",fontSize:10,margin:"0 0 6px",letterSpacing:0.5}}>{formatDate(entry.created_at)}</p>
+              {entry.prompt && <p style={{color:"rgba(196,164,224,0.5)",fontSize:11,fontStyle:"italic",margin:"0 0 8px",lineHeight:1.5}}>« {entry.prompt} »</p>}
+              <p style={{color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,margin:0}}>{entry.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1051,7 +1157,7 @@ function ParcoursScreen({ activeProgram, setActiveProgram, activeDay, setActiveD
 }
 
 
-function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiumSuccess,goBack,setScreen,activeProgram,setActiveProgram,activeDay,setActiveDay,completedDays,markDayDone,demoMode,userEmail,onLogout,onRefreshStatus,themeId,setThemeId,initialEspaceView,onClearEspaceView }) {
+function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiumSuccess,goBack,setScreen,activeProgram,setActiveProgram,activeDay,setActiveDay,completedDays,markDayDone,demoMode,userEmail,onLogout,onRefreshStatus,themeId,setThemeId,initialEspaceView,onClearEspaceView,favorites,journalEntries }) {
   const [tab, setTab] = useState("programmes");
   const [espaceView, setEspaceView] = useState(initialEspaceView || null);
 
@@ -1064,6 +1170,8 @@ function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiu
   if (espaceView==="meditations") return <MeditationsScreen goBack={()=>setEspaceView(null)}/>;
   if (espaceView==="bibliotheque") return <BibliothequeScreen goBack={()=>setEspaceView(null)}/>;
   if (espaceView==="themes") return <ThemesScreen goBack={()=>setEspaceView(null)} themeId={themeId} setThemeId={setThemeId}/>;
+  if (espaceView==="favoris") return <FavoritesScreen goBack={()=>setEspaceView(null)} favorites={favorites}/>;
+  if (espaceView==="historique") return <HistoriqueScreen goBack={()=>setEspaceView(null)} entries={journalEntries}/>;
 
 
   if (activeDay!==null && activeProgram!==null) {
@@ -1100,6 +1208,8 @@ function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiu
               ["🗓️","Parcours","programmes"],
               ["📚","Bibliothèque","bibliotheque"],
               ["🎨","Thèmes","themes"],
+              ["💜","Mes favoris","favoris"],
+              ["📝","Mon journal","historique"],
             ].map(([ic,lb,key])=>(
               <div key={lb} onClick={()=>{ if(key==="programmes") setTab("programmes"); else setEspaceView(key); }} style={{background:"rgba(155,111,212,0.07)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:14,padding:"14px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:"pointer"}}>
                 <span style={{fontSize:20}}>{ic}</span>
@@ -1729,13 +1839,351 @@ function ThemesScreen({ goBack, themeId, setThemeId }) {
   );
 }
 
+// ─── FAVORIS SCREEN ───────────────────────────────────────────────────────────
+function FavoritesScreen({ goBack, favorites }) {
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Mes affirmations favorites</h2>
+      <p style={s.screenSub}>{favorites.length} affirmation{favorites.length!==1?"s":""} sauvegardée{favorites.length!==1?"s":""}</p>
+      {favorites.length === 0 ? (
+        <div style={{textAlign:"center",padding:"32px 0"}}>
+          <span style={{fontSize:36}}>💜</span>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>
+            Aucune affirmation favorite pour l'instant.<br/>Appuie sur 🤍 sur l'accueil pour en sauvegarder.
+          </p>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {favorites.map(fav=>(
+            <div key={fav.id} style={{...s.affCard,padding:"16px"}}>
+              <CornerDecor pos="tl"/><CornerDecor pos="tr"/>
+              <p style={{...s.affText,fontSize:14,margin:0}}>"{fav.affirmation}"</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── HISTORIQUE JOURNAL SCREEN ────────────────────────────────────────────────
+function HistoriqueScreen({ goBack, entries }) {
+  const formatDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Historique du journal</h2>
+      <p style={s.screenSub}>{entries.length} entrée{entries.length!==1?"s":""}</p>
+      {entries.length === 0 ? (
+        <div style={{textAlign:"center",padding:"32px 0"}}>
+          <span style={{fontSize:36}}>📝</span>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>
+            Ton journal est vide pour l'instant.<br/>Commence à écrire pour retrouver tes entrées ici.
+          </p>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {entries.map(entry=>(
+            <div key={entry.id} style={s.mysticalCard}>
+              <p style={{color:"rgba(212,175,122,0.6)",fontSize:10,margin:"0 0 6px",letterSpacing:0.5}}>{formatDate(entry.created_at)}</p>
+              {entry.prompt && <p style={{color:"rgba(196,164,224,0.5)",fontSize:11,fontStyle:"italic",margin:"0 0 8px",lineHeight:1.5}}>« {entry.prompt} »</p>}
+              <p style={{color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,margin:0}}>{entry.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── RITUEL MATIN / SOIR ──────────────────────────────────────────────────────
+const rituals = {
+  matin: {
+    label:"Rituel du matin", emoji:"🌅", color:"#D4AF7A",
+    steps:[
+      { type:"breath", title:"Respiration d'éveil", text:"Prends trois grandes respirations. À chaque expiration, imagine que tu libères les tensions de la nuit.", timer:20 },
+      { type:"intention", title:"Intention du jour", text:"Pose-toi cette question : quelle qualité veux-tu incarner aujourd'hui ? Douceur, courage, patience, joie... Choisis une seule chose.", timer:20 },
+      { type:"affirmation", title:"Affirmation du matin", text:"Répète intérieurement, trois fois : « Je mérite cette journée. Je suis capable de traverser ce qui se présente. »", timer:20 },
+      { type:"gratitude", title:"Une gratitude", text:"Nomme une chose — même petite — pour laquelle tu es reconnaissante ce matin. Laisse-la te remplir un instant.", timer:20 },
+    ]
+  },
+  pause: {
+    label:"Pause du milieu de journée", emoji:"☀️", color:"#C4A4E0",
+    steps:[
+      { type:"breath", title:"Respiration ancrante", text:"Pose tes pieds à plat sur le sol. Prends cinq respirations profondes, en sentant ton corps bien ancré.", timer:20 },
+      { type:"scan", title:"Comment tu te sens ?", text:"Sans jugement, observe ton état : physique, émotionnel, mental. Tu n'as rien à changer — juste à remarquer.", timer:20 },
+      { type:"recharge", title:"Une phrase pour la suite", text:"Choisis une phrase pour t'accompagner pour la fin de journée : « Je fais de mon mieux, et c'est assez. »", timer:20 },
+    ]
+  },
+  soir: {
+    label:"Rituel du soir", emoji:"🌙", color:"#9B6FD4",
+    steps:[
+      { type:"release", title:"Déposer la journée", text:"Ferme les yeux. Prends une grande inspiration, et à l'expiration, imagine que tu déposes tout ce que tu as porté aujourd'hui.", timer:20 },
+      { type:"gratitude", title:"Trois gratitudes", text:"Nomme trois choses de la journée pour lesquelles tu peux ressentir de la gratitude — même les plus petites.", timer:25 },
+      { type:"compassion", title:"Un moment de douceur", text:"Y a-t-il un moment de la journée où tu as été dure avec toi-même ? Dis-toi maintenant : « J'ai fait de mon mieux avec ce que j'avais. »", timer:20 },
+      { type:"intention", title:"Intention pour demain", text:"En une phrase, pose une intention douce pour demain. Pas une obligation — juste une direction.", timer:20 },
+      { type:"relax", title:"Relâchement", text:"De la tête aux pieds, laisse chaque partie de ton corps se détendre. Tu peux t'endormir ainsi, si tu le souhaites.", timer:30 },
+    ]
+  }
+};
+
+function RitualScreen({ goBack, isPremium, onGoPremium }) {
+  const hour = new Date().getHours();
+  const ritualKey = hour < 12 ? "matin" : hour < 18 ? "pause" : "soir";
+  const ritual = rituals[ritualKey];
+
+  const [step, setStep] = useState(-1); // -1 = intro
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!running || timeLeft <= 0) return;
+    const t = setTimeout(() => setTimeLeft(v => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [running, timeLeft]);
+
+  useEffect(() => {
+    if (running && timeLeft === 0) {
+      setRunning(false);
+      if (step < ritual.steps.length - 1) { setTimeout(() => { setStep(s => s + 1); setTimeLeft(ritual.steps[step+1].timer); }, 800); }
+      else setDone(true);
+    }
+  }, [timeLeft, running]);
+
+  if (!isPremium) return (
+    <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <span style={{fontSize:40}}>🌙</span>
+      <h2 style={{...s.screenTitle,marginTop:12}}>Rituel guidé</h2>
+      <p style={{color:"rgba(196,164,224,0.55)",fontSize:13,lineHeight:1.7,fontStyle:"italic",margin:"12px 0 24px"}}>Les rituels matin et soir sont réservés aux membres Premium.</p>
+      <button style={{...s.validateBtn,width:"100%"}} onClick={onGoPremium}>Découvrir Premium →</button>
+    </div>
+  );
+
+  if (done) return (
+    <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+      <span style={{fontSize:40}}>{ritual.emoji}</span>
+      <h2 style={{...s.screenTitle,marginTop:12}}>Rituel terminé</h2>
+      <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,fontStyle:"italic",lineHeight:1.7,margin:"12px 0 24px"}}>Prends un instant pour remarquer comment tu te sens, avant de reprendre ta journée.</p>
+      <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={goBack}>← Retour à l'accueil</button>
+    </div>
+  );
+
+  if (step === -1) return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <div style={{textAlign:"center",marginBottom:20}}>
+        <span style={{fontSize:36}}>{ritual.emoji}</span>
+        <h2 style={{...s.screenTitle,marginTop:8}}>{ritual.label}</h2>
+        <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,margin:"6px 0 0"}}>{ritual.steps.length} étapes · environ {Math.round(ritual.steps.reduce((a,s)=>a+s.timer,0)/60)} minutes</p>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+        {ritual.steps.map((st,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:12}}>
+            <span style={{color:ritual.color,fontSize:13,fontWeight:"bold",minWidth:18}}>{i+1}</span>
+            <p style={{color:"rgba(232,213,245,0.8)",fontSize:12,margin:0,fontStyle:"italic"}}>{st.title}</p>
+          </div>
+        ))}
+      </div>
+      <button style={{...s.validateBtn,width:"100%"}} onClick={()=>{setStep(0);setTimeLeft(ritual.steps[0].timer);}}>Commencer →</button>
+    </div>
+  );
+
+  const current = ritual.steps[step];
+  const progress = ((step + (1 - timeLeft/current.timer)) / ritual.steps.length) * 100;
+
+  return (
+    <div style={s.screen}>
+      <div style={{height:3,background:"rgba(196,164,224,0.08)",borderRadius:2,overflow:"hidden",marginBottom:20}}>
+        <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${ritual.color},#C4A4E0)`,borderRadius:2,transition:"width 0.5s"}}/>
+      </div>
+      <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,letterSpacing:1,marginBottom:6}}>ÉTAPE {step+1} / {ritual.steps.length}</p>
+      <h3 style={{color:"rgba(232,213,245,0.9)",fontSize:16,fontStyle:"italic",marginBottom:16,fontFamily:"Georgia,serif"}}>{current.title}</h3>
+      <div style={{...s.mysticalCard,minHeight:120,marginBottom:20}}>
+        <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,lineHeight:1.8,fontStyle:"italic",margin:0}}>{current.text}</p>
+      </div>
+      {running && (
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <span style={{color:ritual.color,fontSize:32,fontWeight:"bold"}}>{timeLeft}</span>
+          <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:"2px 0 0",letterSpacing:1}}>secondes</p>
+        </div>
+      )}
+      {!running
+        ? <button style={{...s.validateBtn,width:"100%"}} onClick={()=>setRunning(true)}>Commencer cette étape</button>
+        : <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={()=>setRunning(false)}>Pause</button>
+      }
+    </div>
+  );
+}
+
+// ─── COMMUNAUTÉ ───────────────────────────────────────────────────────────────
+const MAX_MSG_LENGTH = 200;
+
+function CommunityScreen({ goBack, session, demoMode }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [likedIds, setLikedIds] = useState(new Set());
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const loadMessages = async () => {
+    if (demoMode) {
+      setMessages([
+        { id:"d1", content:"Aujourd'hui j'ai choisi de me parler comme à une amie. C'est plus difficile qu'il n'y paraît, mais ça change tout.", likes:7, created_at: new Date().toISOString() },
+        { id:"d2", content:"Rappel du jour : tu n'as pas à mériter le repos. Tu peux simplement te reposer.", likes:12, created_at: new Date().toISOString() },
+        { id:"d3", content:"Je suis fière d'avoir mis une limite aujourd'hui, même si c'était inconfortable.", likes:5, created_at: new Date().toISOString() },
+        { id:"d4", content:"Une petite victoire : j'ai recommencé à écrire dans mon journal après des semaines d'absence. Sans me juger.", likes:9, created_at: new Date().toISOString() },
+      ]);
+      setLoading(false);
+      return;
+    }
+    const { data } = await supabase
+      .from("community_messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setMessages(data);
+
+    if (session?.user) {
+      const { data: liked } = await supabase
+        .from("community_likes")
+        .select("message_id")
+        .eq("user_id", session.user.id);
+      if (liked) setLikedIds(new Set(liked.map(l => l.message_id)));
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadMessages(); }, []);
+
+  const handleSend = async () => {
+    if (!text.trim()) return;
+    if (text.length > MAX_MSG_LENGTH) { setError(`Maximum ${MAX_MSG_LENGTH} caractères.`); return; }
+    if (demoMode) { setError("Connecte-toi pour partager un message."); return; }
+    setSending(true); setError("");
+    const { error: err } = await supabase.from("community_messages").insert({
+      user_id: session.user.id,
+      content: text.trim(),
+    });
+    if (err) { setError("Une erreur est survenue. Réessaie."); }
+    else { setText(""); loadMessages(); }
+    setSending(false);
+  };
+
+  const handleLike = async (msg) => {
+    if (demoMode) return;
+    const alreadyLiked = likedIds.has(msg.id);
+    const newLikedIds = new Set(likedIds);
+    if (alreadyLiked) {
+      newLikedIds.delete(msg.id);
+      setLikedIds(newLikedIds);
+      setMessages(prev => prev.map(m => m.id===msg.id ? {...m, likes: Math.max(0, m.likes-1)} : m));
+      await supabase.from("community_likes").delete().eq("user_id", session.user.id).eq("message_id", msg.id);
+      await supabase.from("community_messages").update({ likes: Math.max(0, msg.likes-1) }).eq("id", msg.id);
+    } else {
+      newLikedIds.add(msg.id);
+      setLikedIds(newLikedIds);
+      setMessages(prev => prev.map(m => m.id===msg.id ? {...m, likes: m.likes+1} : m));
+      await supabase.from("community_likes").insert({ user_id: session.user.id, message_id: msg.id });
+      await supabase.from("community_messages").update({ likes: msg.likes+1 }).eq("id", msg.id);
+    }
+  };
+
+  const formatTime = (iso) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 60000);
+    if (diff < 1) return "à l'instant";
+    if (diff < 60) return `il y a ${diff} min`;
+    if (diff < 1440) return `il y a ${Math.floor(diff/60)}h`;
+    return d.toLocaleDateString("fr-FR", { day:"numeric", month:"short" });
+  };
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <span style={{fontSize:22}}>🌸</span>
+        <h2 style={s.screenTitle}>Espace communauté</h2>
+      </div>
+      <p style={s.screenSub}>Un espace bienveillant pour partager anonymement.</p>
+
+      <div style={{...s.mysticalCard,marginBottom:14}}>
+        <textarea
+          style={{...s.textarea,minHeight:80}}
+          placeholder="Partage une pensée, une victoire, une affirmation... en toute bienveillance."
+          value={text}
+          onChange={e=>{ setText(e.target.value); if(error) setError(""); }}
+          maxLength={MAX_MSG_LENGTH+10}
+        />
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+          <span style={{fontSize:10,color:text.length>MAX_MSG_LENGTH?"#E89B9B":"rgba(196,164,224,0.35)"}}>
+            {text.length}/{MAX_MSG_LENGTH}
+          </span>
+          <button
+            style={{...s.validateBtn,padding:"8px 20px",fontSize:12,opacity:(sending||!text.trim()||text.length>MAX_MSG_LENGTH)?0.5:1}}
+            onClick={handleSend}
+            disabled={sending||!text.trim()||text.length>MAX_MSG_LENGTH}
+          >
+            {sending?"...":"Partager 💜"}
+          </button>
+        </div>
+        {error && <p style={{color:"#E89B9B",fontSize:11,margin:"6px 0 0",fontStyle:"italic"}}>{error}</p>}
+      </div>
+
+      <Divider/>
+
+      {loading && <p style={{color:"rgba(196,164,224,0.35)",fontSize:12,textAlign:"center",fontStyle:"italic",padding:"20px 0"}}>Chargement...</p>}
+
+      {!loading && messages.length===0 && (
+        <div style={{textAlign:"center",padding:"24px 0"}}>
+          <span style={{fontSize:32}}>🌱</span>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>
+            Sois la première à partager quelque chose.<br/>La communauté commence ici.
+          </p>
+        </div>
+      )}
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {messages.map(msg=>{
+          const liked = likedIds.has(msg.id);
+          return (
+            <div key={msg.id} style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px"}}>
+              <p style={{color:"rgba(232,213,245,0.88)",fontSize:13,lineHeight:1.7,margin:"0 0 10px",fontStyle:"italic"}}>
+                "{msg.content}"
+              </p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{color:"rgba(196,164,224,0.3)",fontSize:10}}>{formatTime(msg.created_at)}</span>
+                <button
+                  onClick={()=>handleLike(msg)}
+                  style={{background:liked?"rgba(196,164,224,0.08)":"none",border:"none",cursor:demoMode?"default":"pointer",display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:8}}
+                >
+                  <span style={{fontSize:14,opacity:liked?1:0.4}}>{liked?"💜":"🤍"}</span>
+                  <span style={{color:liked?"#C4A4E0":"rgba(196,164,224,0.35)",fontSize:11}}>{msg.likes}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{color:"rgba(196,164,224,0.2)",fontSize:10,textAlign:"center",margin:"20px 0 0",lineHeight:1.6,fontStyle:"italic"}}>
+        Tous les messages sont anonymes et partagés avec bienveillance.
+      </p>
+    </div>
+  );
+}
+
 function BottomNav({ screen, onNavigate, isPremium }) {
   const items = [
     { label:"Accueil", key:"home", icon:<CompassRose size={18} color={screen==="home"?"#C4A4E0":"rgba(196,164,224,0.35)"}/> },
     { label:"Humeur", key:"humeur", icon:<EyeIcon size={18} color={screen==="humeur"?"#C4A4E0":"rgba(196,164,224,0.35)"}/> },
     { label:"Journal", key:"journal", icon:<span style={{fontSize:16,opacity:screen==="journal"?1:0.35}}>📖</span> },
+    { label:"Communauté", key:"communaute", icon:<span style={{fontSize:16,opacity:screen==="communaute"?1:0.35}}>🌸</span> },
     { label:"Exercices", key:"exercices", icon:<span style={{fontSize:16,opacity:screen==="exercices"?1:0.35}}>🌿</span> },
-    { label:"Pardon", key:"pardon", icon:<span style={{fontSize:16,opacity:screen==="pardon"?1:0.35}}>🕊️</span> },
     { label:"Premium", key:"premium", icon:<StarIcon size={16} color={screen==="premium"?"#D4AF7A":"rgba(212,175,122,0.35)"}/> },
   ];
   return (
