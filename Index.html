@@ -1,0 +1,2598 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Lumière — S'aimer. Grandir. Rayonner.</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#060410;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Georgia,'Times New Roman',serif;overflow-x:hidden;}
+  ::-webkit-scrollbar{display:none;}
+  textarea:focus,input:focus{outline:none;}
+  button{cursor:pointer;font-family:Georgia,'Times New Roman',serif;}
+  button:disabled{cursor:default;}
+  a{font-family:Georgia,'Times New Roman',serif;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// ─── SUPABASE (authentification & statut premium) ────────────────────────────
+// "DEMO" reste actif si le SDK Supabase n'est pas chargé (ex: aperçu de l'artifact).
+// Dans le fichier HTML autonome, le script CDN de Supabase est inclus et ce client
+// se connecte réellement au projet.
+const SUPABASE_URL = "https://fhxluzfirwtwgttegdii.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoeGx1emZpcnd0d2d0dGVnZGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MzU4NzUsImV4cCI6MjA5NzExMTg3NX0.D72TAFjMYgURqDkVV1brswU8XRO1qgcbScrrAYCTy4o";
+const supabase = (typeof window !== "undefined" && window.supabase && window.supabase.createClient)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+const DEMO_MODE = !supabase;
+
+// PALETTE
+// Background:  #0D0A12
+// Primary:     #9B6FD4
+// Light:       #C4A4E0
+// Text:        #E8D5F5
+// Gold:        #D4AF7A
+// Green:       #A8C5A0
+// Blue:        #7B8CDE
+
+const affirmations = [
+  "Je mérite d'être aimé(e) exactement tel(le) que je suis.",
+  "Mes imperfections font partie de ma beauté unique.",
+  "Je m'autorise à prendre soin de moi aujourd'hui.",
+  "Je suis suffisant(e), maintenant, dans cet instant.",
+  "Ma valeur ne dépend pas de ce que je produis.",
+  "Je me pardonne mes erreurs, elles m'ont appris à grandir.",
+  "Je choisis aujourd'hui la douceur envers moi-même.",
+];
+
+const prompts = [
+  "Quelle est une chose que tu as bien faite aujourd'hui, même petite ?",
+  "Comment ton corps a-t-il pris soin de toi aujourd'hui ?",
+  "Qu'est-ce que tu t'autorises à ressentir en ce moment ?",
+  "Quelle qualité en toi mérite d'être célébrée ?",
+  "Si ton meilleur(e) ami(e) vivait ce que tu vis, que lui dirais-tu ?",
+];
+
+const exercises = [
+  { icon:"🌿", title:"Lettre à soi", duration:"5 min", desc:"Écris une lettre bienveillante à la version de toi d'il y a 5 ans." },
+  { icon:"🫶", title:"Toucher du cœur", duration:"2 min", desc:"Pose une main sur ton cœur et dis 3 choses douces à voix haute." },
+  { icon:"🌬️", title:"Respiration douce", duration:"3 min", desc:"4 temps d'inspiration, 6 temps d'expiration. Répète 6 fois." },
+  { icon:"✨", title:"Miroir bienveillant", duration:"1 min", desc:"Regarde-toi dans un miroir et nomme 3 choses que tu aimes en toi." },
+];
+
+const moodOptions = [
+  { emoji:"😔", label:"Difficile", color:"#7B8CDE" },
+  { emoji:"😐", label:"Neutre", color:"#A8C5A0" },
+  { emoji:"🙂", label:"Bien", color:"#C4A4E0" },
+  { emoji:"😊", label:"Lumineuse", color:"#D4AF7A" },
+];
+
+const pardonSteps = [
+  { id:"reconnaitre", title:"Reconnaître", color:"#C4A4E0", desc:"Avant de pardonner, on nomme ce qui s'est passé. Sans jugement, juste les faits.", prompt:"Décris la situation ou l'erreur que tu portes encore..." },
+  { id:"comprendre", title:"Comprendre", color:"#9B6FD4", desc:"Chaque erreur vient d'un manque. Tu faisais de ton mieux à ce moment-là.", prompt:"Qu'est-ce qui t'a amené(e) à agir ainsi ? Qu'est-ce qui te manquait ?" },
+  { id:"liberer", title:"Se libérer", color:"#D4AF7A", desc:"Le pardon n'efface pas, il libère. Tu n'as pas à porter ça pour toujours.", prompt:"Qu'aimerais-tu dire, pour tourner la page ?" },
+];
+
+const pardonAffirmations = [
+  "Je me libère du poids de la culpabilité. J'ai fait ce que je pouvais.",
+  "Pardonner ne veut pas dire excuser. Ça veut dire choisir ma paix.",
+  "Je mérite de me réconcilier avec moi-même.",
+  "Mes erreurs passées ne définissent pas qui je suis aujourd'hui.",
+  "Je m'autorise à lâcher ce que je n'aurais pas pu changer.",
+];
+
+const premiumFeatures = [
+  { title:"Méditations audio guidées", desc:"20+ séances enregistrées par des thérapeutes francophones", tag:"Permanent" },
+  { title:"Statistiques d'humeur", desc:"Visualise ton évolution émotionnelle sur des semaines et des mois", tag:"Permanent" },
+  { title:"Mode crise", desc:"Un espace d'urgence émotionnelle guidé pas à pas, disponible 24h/24", tag:"Permanent" },
+  { title:"Thèmes & personnalisation", desc:"Ambiances visuelles, rappels personnalisés, prénom dans les messages", tag:"Permanent" },
+  { title:"Bibliothèque complète", desc:"500+ affirmations thématiques, 30+ exercices de self-compassion", tag:"Permanent" },
+  { title:"Parcours guidés", desc:"8 parcours complets, de 14 à 30 jours, sur les grands thèmes de l'amour de soi", tag:"Hebdo" },
+  { title:"Défi quotidien", desc:"Un seul défi par jour : affirmation, méditation, journal ou action", tag:"Hebdo" },
+  { title:"Nouveaux parcours réguliers", desc:"De nouveaux parcours ajoutés régulièrement", tag:"Hebdo" },
+];
+
+// ─── PARCOURS GUIDES ──────────────────────────────────────────────────────────
+const challengeTypes = {
+  affirmation: { icon:"🌅", label:"Affirmation du jour", color:"#D4AF7A" },
+  meditation:  { icon:"🧘", label:"Méditation guidée",   color:"#9B6FD4" },
+  journal:     { icon:"✍️", label:"Question de journal", color:"#C4A4E0" },
+  action:      { icon:"🎯", label:"Défi du jour",        color:"#A8C5A0" },
+};
+
+const phaseOrders = [
+  ["journal","affirmation","meditation","action"],
+  ["meditation","action","affirmation","journal"],
+  ["action","affirmation","journal","meditation"],
+];
+
+const programs = [
+  {
+    theme:"Se réconcilier avec soi-même", emoji:"🌿", color:"#9B6FD4", duration:21, locked:false,
+    intro:"21 jours pour observer, accueillir et réécrire ton histoire avec toi-même.",
+    phases:[{name:"Prise de conscience",start:1,end:7},{name:"Acceptation",start:8,end:14},{name:"Réconciliation",start:15,end:21}],
+    pools:{
+      affirmation:[
+        "Je m'observe aujourd'hui avec curiosité, pas avec sévérité.",
+        "J'accueille ce que je ressens, sans avoir besoin de le changer tout de suite.",
+        "Mon histoire ne me condamne pas, elle m'a menée jusqu'ici.",
+        "Je peux être en désaccord avec mon passé et en paix avec lui.",
+      ],
+      meditation:[
+        ["Scan corporel bienveillant","10 min","Remarquer les tensions sans les juger, juste les observer."],
+        ["L'observateur intérieur","8 min","Prendre du recul sur ses pensées, comme des nuages qui passent."],
+        ["La bienveillance envers soi","12 min","S'offrir la même compassion qu'on offrirait à un ami."],
+        ["Réécrire son histoire","12 min","Visualiser son parcours avec gratitude plutôt qu'avec jugement."],
+      ],
+      journal:[
+        "Quelle critique m'adresse-je le plus souvent ? D'où vient-elle ?",
+        "Quelle partie de moi ai-je du mal à accepter aujourd'hui ?",
+        "Si je racontais mon histoire à quelqu'un que j'aime, comment la raconterais-je différemment ?",
+        "Qu'est-ce que je sais aujourd'hui que je ne savais pas il y a 5 ans ?",
+      ],
+      action:[
+        "Chaque fois que tu te critiques aujourd'hui, pose une main sur ton cœur et dis intérieurement : c'est humain.",
+        "Écris sur un papier une chose que tu acceptes de toi, et garde-le visible toute la journée.",
+        "Raconte (à voix haute ou par écrit) un souvenir difficile en y ajoutant : et j'ai survécu.",
+        "Choisis un mot qui résume qui tu es devenu(e) et écris-le quelque part visible.",
+      ],
+    },
+  },
+  {
+    theme:"Gérer les émotions difficiles", emoji:"🌊", color:"#7B8CDE", duration:30, locked:false,
+    intro:"30 jours pour apprendre à ressentir sans être submergé(e), et transformer la douleur en sagesse.",
+    phases:[{name:"Identifier",start:1,end:10},{name:"Traverser",start:11,end:20},{name:"Intégrer",start:21,end:30}],
+    pools:{
+      affirmation:[
+        "Je peux ressentir sans être submergé(e).",
+        "Mes émotions sont des messagères, pas des ennemies.",
+        "Cette vague va passer, je n'ai qu'à respirer.",
+        "Ce que j'ai traversé m'a appris quelque chose de précieux.",
+      ],
+      meditation:[
+        ["Respiration 4-7-8","8 min","Réguler le système nerveux face à une émotion intense."],
+        ["La tempête qui passe","10 min","Accueillir les émotions intenses comme une vague qui se retire."],
+        ["Nommer pour apaiser","8 min","Identifier précisément l'émotion ressentie pour lui retirer du pouvoir."],
+        ["Le deuil bienveillant","12 min","Honorer ce qui a été perdu, avec douceur."],
+      ],
+      journal:[
+        "Quelle émotion ai-je évitée cette semaine ? Qu'essayait-elle de me dire ?",
+        "Où est-ce que je ressens cette émotion dans mon corps ?",
+        "Qu'est-ce que cette émotion essaie de protéger en moi ?",
+        "Quelle sagesse cette période difficile m'a-t-elle apportée ?",
+      ],
+      action:[
+        "Planifie 20 minutes de temps libre non structuré et laisse l'émotion remonter naturellement.",
+        "Remplis ta roue des émotions du jour, sans jugement.",
+        "Écris une lettre à ton émotion comme si elle était une personne. Que veut-elle te dire ?",
+        "Fais une activité créative (dessin, musique, écriture) pour exprimer ce que tu ressens sans mots.",
+      ],
+    },
+  },
+  {
+    theme:"Renforcer la confiance en soi", emoji:"✨", color:"#D4AF7A", duration:21, locked:false,
+    intro:"21 jours pour redécouvrir tes forces et agir malgré la peur.",
+    phases:[{name:"Fondations",start:1,end:7},{name:"Expérimentation",start:8,end:14},{name:"Ancrage",start:15,end:21}],
+    pools:{
+      affirmation:[
+        "Ma valeur ne depend pas du regard des autres.",
+        "Je fais confiance à mon jugement, même quand j'hésite.",
+        "Agir malgré la peur, c'est déjà du courage.",
+        "Je n'ai pas besoin de tout savoir pour avancer.",
+      ],
+      meditation:[
+        ["Mes valeurs, mes forces","10 min","Identifier ce qui compte vraiment et ce qui me rend fort(e)."],
+        ["Visualisation d'assurance","12 min","Se voir agir avec calme et confiance dans une situation difficile."],
+        ["La confiance en soi","10 min","Se reconnecter à sa force intérieure, toujours présente."],
+        ["Ancrage dans le présent","8 min","Se rappeler que je peux gérer ce qui se présente, maintenant."],
+      ],
+      journal:[
+        "Dans quelle situation ai-je cherché une validation externe ? Qu'aurais-je voulu me dire ?",
+        "Quelle est une de mes forces que je sous-estime souvent ?",
+        "Quelle petite victoire ai-je remportée aujourd'hui ?",
+        "Quelle décision ai-je prise récemment dont je suis fier(e) ?",
+      ],
+      action:[
+        "Fais une chose aujourd'hui sans demander l'avis de personne.",
+        "Exprime une opinion que tu gardes habituellement pour toi.",
+        "Fais quelque chose qui te fait un peu peur, juste un petit pas.",
+        "Note dans ton journal une victoire du jour, même minuscule.",
+      ],
+    },
+  },
+  {
+    theme:"Trouver la paix intérieure", emoji:"☁️", color:"#A8C5A0", duration:14, locked:true,
+    intro:"14 jours pour sortir du mode automatique et retrouver un calme durable.",
+    phases:[{name:"Décélération",start:1,end:5},{name:"Présence",start:6,end:10},{name:"Ancrage",start:11,end:14}],
+    pools:{
+      affirmation:[
+        "Je n'ai rien à prouver aujourd'hui.",
+        "Je peux ralentir sans culpabilité.",
+        "Cet instant est suffisant.",
+        "Le calme est toujours accessible, même un instant.",
+      ],
+      meditation:[
+        ["Le refuge intérieur","10 min","Visualiser un lieu sûr où l'on se sent en sécurité et apaisé(e)."],
+        ["Pleine conscience des sens","10 min","Voir, entendre, toucher : revenir au moment présent par les sens."],
+        ["Respiration ancrante","8 min","Se reconnecter au corps et au sol sous ses pieds."],
+        ["Le silence intérieur","12 min","Laisser le mental se calmer, sans rien forcer."],
+      ],
+      journal:[
+        "Quel moment de calme ai-je vécu aujourd'hui, même bref ?",
+        "Qu'est-ce qui occupe mon esprit en ce moment, et est-ce vraiment urgent ?",
+        "Où est-ce que je me sens le plus apaisé(e) habituellement ?",
+        "Qu'est-ce qui m'aiderait à ralentir demain ?",
+      ],
+      action:[
+        "Un repas sans écran, mangé lentement et en pleine conscience.",
+        "Accorde-toi 10 minutes de silence total aujourd'hui, sans musique ni notifications.",
+        "Marche 5 minutes sans but, juste pour observer ce qui t'entoure.",
+        "Avant de dormir, note une chose qui peut attendre demain et lâche-la pour ce soir.",
+      ],
+    },
+  },
+  {
+    theme:"Prendre soin de soi sans culpabilite", emoji:"🌸", color:"#C4A4E0", duration:21, locked:true,
+    intro:"21 jours pour t'autoriser à exister pour toi, sans justification.",
+    phases:[{name:"Permission",start:1,end:7},{name:"Limites",start:8,end:14},{name:"Rituel",start:15,end:21}],
+    pools:{
+      affirmation:[
+        "J'ai le droit d'exister pour moi, pas seulement pour les autres.",
+        "Prendre soin de moi me rend plus disponible, pas moins.",
+        "Dire non, c'est dire oui à moi-même.",
+        "Me reposer n'est pas un luxe, c'est un besoin.",
+      ],
+      meditation:[
+        ["Metta envers soi","10 min","Méditation de l'amour bienveillant tournée vers soi-même."],
+        ["Permission de se reposer","8 min","Se libérer de la culpabilité liée au repos."],
+        ["Le toucher du cœur","2 min","Un geste simple pour s'envoyer de la chaleur et de la compassion."],
+        ["Rituel de soin","10 min","Visualiser un moment de soin pour soi, sans justification."],
+      ],
+      journal:[
+        "Ai-je dit oui à quelque chose cette semaine en voulant dire non ? Pourquoi ?",
+        "Quand ai-je pris soin de moi pour la dernière fois sans culpabilité ?",
+        "Qu'est-ce que je ferais aujourd'hui si je n'avais pas à me justifier ?",
+        "De quoi ai-je besoin en ce moment, vraiment ?",
+      ],
+      action:[
+        "Refuse ou reporte une demande non urgente aujourd'hui, sans t'expliquer longuement.",
+        "Accorde-toi un moment de soin aujourd'hui (bain, lecture, marche) sans le justifier à personne.",
+        "Dis non à une seule chose aujourd'hui, avec douceur mais sans excuses.",
+        "Planifie un rendez-vous avec toi-même cette semaine, comme tu le ferais pour quelqu'un d'important.",
+      ],
+    },
+  },
+  {
+    theme:"Traverser une transition de vie", emoji:"🦋", color:"#9B6FD4", duration:30, locked:true,
+    intro:"30 jours pour traverser le changement et redécouvrir qui tu es.",
+    phases:[{name:"Lâcher prise",start:1,end:10},{name:"Entre-deux",start:11,end:20},{name:"Renaître",start:21,end:30}],
+    pools:{
+      affirmation:[
+        "L'incertitude n'est pas un danger, c'est un espace de possibilités.",
+        "Je peux honorer ce qui se termine tout en avançant.",
+        "Je n'ai pas besoin de savoir qui je deviens pour avancer vers ça.",
+        "Chaque chapitre m'a préparé(e) pour celui-ci.",
+      ],
+      meditation:[
+        ["Lâcher le passé","15 min","Déposer ce qu'on porte encore, sans l'oublier."],
+        ["Respiration ancrante","10 min","Se connecter au corps dans le présent, malgré l'incertitude."],
+        ["L'enfant intérieur","15 min","Rassurer la part de soi qui a peur du changement."],
+        ["Visualiser le nouveau chapitre","12 min","Imaginer doucement ce que cette nouvelle étape peut offrir."],
+      ],
+      journal:[
+        "Qu'est-ce que j'ai perdu dans cette transition ? Qu'est-ce que je découvre de moi ?",
+        "Qu'est-ce qui, en moi, n'a pas changé malgré tout ?",
+        "Si cette transition était un enseignement, que m'apprendrait-elle ?",
+        "À quoi ressemblerait une version apaisée de cette période ?",
+      ],
+      action:[
+        "Écris 3 choses que tu emportes avec toi dans ce nouveau chapitre.",
+        "Fais un petit rituel pour clore symboliquement une étape (lettre, photo, objet).",
+        "Essaie une chose nouvelle aujourd'hui, même minuscule.",
+        "Parle de ce que tu traverses à une personne de confiance, sans minimiser.",
+      ],
+    },
+  },
+  {
+    theme:"Construire une relation saine avec son corps", emoji:"🌺", color:"#D4AF7A", duration:21, locked:true,
+    intro:"21 jours pour faire la paix avec ton corps, ton premier foyer.",
+    phases:[{name:"Désapprendre",start:1,end:7},{name:"Écouter",start:8,end:14},{name:"Habiter",start:15,end:21}],
+    pools:{
+      affirmation:[
+        "Mon corps fait des choses extraordinaires chaque jour.",
+        "Je mérite d'habiter mon corps avec douceur, pas avec guerre.",
+        "Mon corps n'est pas un projet, c'est mon foyer.",
+        "Je peux prendre soin de mon corps sans chercher à le changer.",
+      ],
+      meditation:[
+        ["Body scan de gratitude","12 min","Remercier chaque partie du corps pour ce qu'elle fait pour nous."],
+        ["Le corps comme allié","10 min","Se reconnecter au corps comme un soutien, pas un adversaire."],
+        ["Mouvement en pleine conscience","10 min","Bouger doucement en écoutant les sensations, sans objectif."],
+        ["Le toucher bienveillant","8 min","S'accorder un moment de douceur physique envers soi-même."],
+      ],
+      journal:[
+        "Quel message négatif sur mon corps ai-je intériorisé ? D'où venait-il ?",
+        "Quelle partie de mon corps ai-je du mal à accepter, et pourquoi ?",
+        "Qu'est-ce que mon corps a traversé et surmonté dans ma vie ?",
+        "Comment je parlerais de mon corps à un enfant que j'aime ?",
+      ],
+      action:[
+        "Fais une chose que ton corps aime aujourd'hui (danser, marcher, s'étirer) sans objectif de performance.",
+        "Mange un repas en pleine conscience, sans écran, en savourant.",
+        "Devant un miroir, nomme à voix haute 3 choses que tu apprécies chez toi, pas forcément physiques.",
+        "Couche-toi 30 minutes plus tôt ce soir, comme un cadeau à ton corps.",
+      ],
+    },
+  },
+  {
+    theme:"Progresser spirituellement et philosophiquement", emoji:"🔮", color:"#7B8CDE", duration:30, locked:true,
+    intro:"30 jours pour explorer ce qui te guide vraiment, en profondeur.",
+    phases:[{name:"Introspection",start:1,end:10},{name:"Valeurs",start:11,end:20},{name:"Alignement",start:21,end:30}],
+    pools:{
+      affirmation:[
+        "Mes actions d'aujourd'hui reflètent ce que je suis profondément.",
+        "Je peux évoluer sans renier qui j'étais.",
+        "Ce qui compte vraiment mérite mon attention aujourd'hui.",
+        "Je vis selon ce en quoi je crois, un geste à la fois.",
+      ],
+      meditation:[
+        ["Qui suis-je vraiment ?","15 min","Méditation contemplative sur l'identité, au-delà des rôles."],
+        ["Mes valeurs profondes","12 min","Identifier ce qui me guide véritablement, sans filtre extérieur."],
+        ["Qu'est-ce qui compte vraiment ?","15 min","Méditation contemplative sur une question ouverte."],
+        ["Gratitude et sens","10 min","Se reconnecter à ce qui donne du sens à sa vie."],
+      ],
+      journal:[
+        "Y a-t-il un écart entre mes valeurs et mes actions cette semaine ?",
+        "Quelle croyance ai-je héritée et que je n'ai jamais vraiment questionnée ?",
+        "Qu'est-ce qui me procure un sentiment profond de sens ?",
+        "Si je vivais pleinement aligné(e) avec mes valeurs, qu'est-ce qui changerait ?",
+      ],
+      action:[
+        "Pose un geste aujourd'hui, petit mais intentionnel, en accord avec une de tes valeurs profondes.",
+        "Écris ta carte de valeurs : les 5 choses qui comptent le plus pour toi.",
+        "Passe 10 minutes sans écran, juste en présence de tes pensées.",
+        "Remercie (en silence ou à voix haute) une personne ou une expérience qui t'a fait grandir.",
+      ],
+    },
+  },
+];
+
+function buildDayList(program) {
+  const counters = { affirmation:0, meditation:0, journal:0, action:0 };
+  const days = [];
+  for (let day=1; day<=program.duration; day++) {
+    const phaseIdx = program.phases.findIndex(p => day>=p.start && day<=p.end);
+    const phase = program.phases[phaseIdx];
+    const dip = day - phase.start;
+    const type = phaseOrders[phaseIdx][dip % 4];
+    const pool = program.pools[type];
+    const content = pool[counters[type] % pool.length];
+    counters[type]++;
+    days.push({ day, phase, phaseIdx, type, content });
+  }
+  return days;
+}
+
+// ─── DECORATIVE ELEMENTS ─────────────────────────────────────────────────────
+const StarIcon = ({ size=16, color="#C4A4E0", style={} }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <path d="M12 2L13.5 9H20.5L14.5 13.5L16.5 20.5L12 16L7.5 20.5L9.5 13.5L3.5 9H10.5L12 2Z" fill={color} opacity="0.9"/>
+  </svg>
+);
+
+const CompassRose = ({ size=28, color="#9B6FD4" }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+    <path d="M20 4L22 18H20H18L20 4Z" fill={color}/>
+    <path d="M20 36L18 22H20H22L20 36Z" fill={color} opacity="0.6"/>
+    <path d="M4 20L18 18V20V22L4 20Z" fill={color} opacity="0.6"/>
+    <path d="M36 20L22 22V20V18L36 20Z" fill={color}/>
+    <circle cx="20" cy="20" r="3" fill={color}/>
+    <circle cx="20" cy="20" r="6" stroke={color} strokeWidth="0.5" opacity="0.4"/>
+  </svg>
+);
+
+const EyeIcon = ({ size=22, color="#9B6FD4" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <ellipse cx="12" cy="12" rx="9" ry="6" stroke={color} strokeWidth="1.5"/>
+    <circle cx="12" cy="12" r="3" fill={color} opacity="0.7"/>
+  </svg>
+);
+
+const CornerDecor = ({ pos }) => {
+  const posStyle = {
+    tl:{top:0,left:0}, tr:{top:0,right:0,transform:"scaleX(-1)"},
+    bl:{bottom:0,left:0,transform:"scaleY(-1)"}, br:{bottom:0,right:0,transform:"scale(-1)"},
+  }[pos];
+  return (
+    <svg width="32" height="32" viewBox="0 0 36 36" fill="none" style={{position:"absolute",pointerEvents:"none",...posStyle}}>
+      <path d="M2 2 L16 2 L2 16 Z" fill="none" stroke="rgba(196,164,224,0.2)" strokeWidth="1"/>
+      <path d="M2 2 L8 2 L2 8 Z" fill="rgba(196,164,224,0.1)"/>
+      <circle cx="18" cy="2" r="1" fill="rgba(196,164,224,0.3)"/>
+      <circle cx="2" cy="18" r="1" fill="rgba(196,164,224,0.3)"/>
+    </svg>
+  );
+};
+
+const Divider = () => (
+  <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0"}}>
+    <div style={{flex:1,height:1,background:"rgba(196,164,224,0.12)"}}/>
+    <StarIcon size={9} color="#9B6FD4"/>
+    <div style={{flex:1,height:1,background:"rgba(196,164,224,0.12)"}}/>
+  </div>
+);
+
+const SectionLabel = ({ children, color="#9B6FD4" }) => (
+  <div style={{display:"flex",alignItems:"center",gap:7,margin:"0 0 12px"}}>
+    <StarIcon size={9} color={color}/>
+    <span style={{color,fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"Georgia,serif"}}>{children}</span>
+    <div style={{flex:1,height:"1px",background:`${color}25`}}/>
+  </div>
+);
+
+function AuthScreen({ onAuthed }) {
+  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+
+  const handleSubmit = async () => {
+    setError(""); setInfo("");
+    if (!email.trim() || !password.trim()) { setError("Merci de remplir tous les champs."); return; }
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const { error: err } = await supabase.auth.signUp({ email: email.trim(), password });
+        if (err) throw err;
+        setInfo("Compte créé ! Vérifie ta boîte mail pour confirmer ton inscription, puis connecte-toi.");
+        setMode("signin");
+      } else {
+        const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (err) throw err;
+        if (onAuthed) onAuthed();
+      }
+    } catch (e) {
+      setError(e.message || "Une erreur est survenue. Réessaie.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={s.screen}>
+      <div style={{textAlign:"center",padding:"24px 0 18px"}}>
+        <CompassRose size={36} color="#9B6FD4"/>
+        <h1 style={{...s.appName,fontSize:26,marginTop:10}}>Lumière</h1>
+        <p style={s.greeting}>S'aimer. Grandir. Rayonner.</p>
+      </div>
+      <Divider/>
+
+      <div style={{display:"flex",borderBottom:"1px solid rgba(196,164,224,0.1)",marginBottom:18}}>
+        {["signin","signup"].map(m=>(
+          <button key={m} onClick={()=>{setMode(m);setError("");setInfo("");}} style={{flex:1,background:"transparent",border:"none",padding:"9px 0",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:1,color:mode===m?"#C4A4E0":"rgba(196,164,224,0.35)",borderBottom:mode===m?"1px solid #9B6FD4":"1px solid transparent"}}>
+            {m==="signin"?"SE CONNECTER":"CRÉER UN COMPTE"}
+          </button>
+        ))}
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:14}}>
+        <input style={s.input} type="email" placeholder="Adresse e-mail" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/>
+        <input style={s.input} type="password" placeholder="Mot de passe" value={password} onChange={e=>setPassword(e.target.value)} autoComplete={mode==="signup"?"new-password":"current-password"} onKeyDown={e=>{if(e.key==="Enter")handleSubmit();}}/>
+      </div>
+
+      {error && <p style={{color:"#E89B9B",fontSize:12,lineHeight:1.5,margin:"0 0 12px",fontStyle:"italic"}}>{error}</p>}
+      {info && <p style={{color:"#A8C5A0",fontSize:12,lineHeight:1.5,margin:"0 0 12px",fontStyle:"italic"}}>{info}</p>}
+
+      <button style={{...s.validateBtn,width:"100%",opacity:loading?0.6:1}} onClick={handleSubmit} disabled={loading}>
+        {loading?"...":(mode==="signin"?"Se connecter":"Créer mon compte")}
+      </button>
+
+      <p style={{color:"rgba(196,164,224,0.35)",fontSize:10,textAlign:"center",margin:"16px 0 0",lineHeight:1.6,fontStyle:"italic"}}>
+        {mode==="signin"
+          ? "Pas encore de compte ? Crée-en un en un instant — c'est gratuit."
+          : "Tes affirmations, ton journal et ta progression seront liés à ce compte."}
+      </p>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function LumiereApp() {
+  const [screen, setScreen] = useState("home");
+  const [affIdx, setAffIdx] = useState(0);
+  const [selectedMood, setSelectedMood] = useState(null);
+  const [journalText, setJournalText] = useState("");
+  const [promptIdx, setPromptIdx] = useState(0);
+  const [streak] = useState(4);
+  const [saved, setSaved] = useState(false);
+  const [breathing, setBreathing] = useState(false);
+  const [breathPhase, setBreathPhase] = useState("idle");
+  const [pardonTarget, setPardonTarget] = useState(null);
+  const [pardonStep, setPardonStep] = useState(0);
+  const [pardonTexts, setPardonTexts] = useState(["","",""]);
+  const [pardonAffIdx, setPardonAffIdx] = useState(0);
+  const [pardonDone, setPardonDone] = useState(false);
+  const [isPremiumDemo, setIsPremiumDemo] = useState(false);
+  const [premiumPlan, setPremiumPlan] = useState("annual");
+  const [premiumSuccess, setPremiumSuccess] = useState(false);
+  const [activeProgram, setActiveProgram] = useState(null);
+  const [activeDay, setActiveDay] = useState(null);
+  const [completedDays, setCompletedDays] = useState({});
+  const [themeId, setThemeId] = useState("mystique");
+  const t = themes[themeId];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [espaceViewGlobal, setEspaceViewGlobal] = useState(null);
+
+  // ── Journal historique (Supabase) ──
+  const [journalEntries, setJournalEntries] = useState([]);
+
+  const loadJournalEntries = async () => {
+    if (DEMO_MODE || !session?.user) return;
+    const { data } = await supabase.from("journal_entries").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+    if (data) setJournalEntries(data);
+  };
+
+  const saveJournalToSupabase = async (text, prompt) => {
+    if (DEMO_MODE || !session?.user || !text.trim()) return;
+    await supabase.from("journal_entries").insert({ user_id: session.user.id, content: text, prompt });
+    loadJournalEntries();
+  };
+
+  // ── Affirmations favorites (Supabase) ──
+  const [favorites, setFavorites] = useState([]);
+
+  const loadFavorites = async () => {
+    if (DEMO_MODE || !session?.user) return;
+    const { data } = await supabase.from("favorites").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+    if (data) setFavorites(data);
+  };
+
+  const toggleFavorite = async (affirmation) => {
+    if (DEMO_MODE) return;
+    const existing = favorites.find(f => f.affirmation === affirmation);
+    if (existing) {
+      await supabase.from("favorites").delete().eq("id", existing.id);
+      setFavorites(prev => prev.filter(f => f.id !== existing.id));
+    } else {
+      const { data } = await supabase.from("favorites").insert({ user_id: session.user.id, affirmation }).select().single();
+      if (data) setFavorites(prev => [data, ...prev]);
+    }
+  };
+
+  const isFavorite = (affirmation) => favorites.some(f => f.affirmation === affirmation);
+
+  // ── Authentification & statut premium (Supabase) ──
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [authChecked, setAuthChecked] = useState(DEMO_MODE);
+
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthChecked(true); });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, sess) => setSession(sess));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const refreshProfile = () => {
+    if (DEMO_MODE || !session?.user) return;
+    supabase.from("profiles").select("is_premium,plan").eq("id", session.user.id).single()
+      .then(({ data }) => setProfile(data));
+  };
+
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    if (session?.user) { refreshProfile(); loadJournalEntries(); loadFavorites(); }
+    else { setProfile(null); setJournalEntries([]); setFavorites([]); }
+  }, [session]);
+
+  const handleLogout = () => { if (!DEMO_MODE) supabase.auth.signOut(); };
+
+  const isPremium = DEMO_MODE ? isPremiumDemo : !!profile?.is_premium;
+
+  const runBreath = () => {
+    setBreathing(true); setBreathPhase("inspire");
+    setTimeout(() => { setBreathPhase("expire");
+      setTimeout(() => { setBreathPhase("done"); setBreathing(false); }, 6000);
+    }, 4000);
+  };
+
+  const nextAff = () => setAffIdx(i=>(i+1)%affirmations.length);
+  const nextPrompt = () => setPromptIdx(i=>(i+1)%prompts.length);
+  const saveJournal = () => {
+    if (journalText.trim()) {
+      setSaved(true);
+      saveJournalToSupabase(journalText, prompts[promptIdx]);
+      setTimeout(()=>setSaved(false),2500);
+    }
+  };
+  const resetPardon = () => { setPardonTarget(null); setPardonStep(0); setPardonTexts(["","",""]); setPardonDone(false); };
+  const stripeLinks = {
+    monthly: "https://buy.stripe.com/dRmfZh0wd2HRgYX4RN3Je00",
+    annual: "https://buy.stripe.com/4gM5kD4Mt4PZfUT83Z3Je01",
+    lifetime: "https://buy.stripe.com/28E8wPgvb96f2431FB3Je02",
+  };
+  const handleSubscribe = () => {
+    if (DEMO_MODE) {
+      setIsPremiumDemo(true); setPremiumSuccess(true); setTimeout(()=>setPremiumSuccess(false),3000);
+      return;
+    }
+    const base = stripeLinks[premiumPlan];
+    const params = new URLSearchParams();
+    if (session?.user?.id) params.set("client_reference_id", session.user.id);
+    if (session?.user?.email) params.set("prefilled_email", session.user.email);
+    window.location.href = params.toString() ? `${base}?${params.toString()}` : base;
+  };
+  const goBack = (extra) => { if (extra) extra(); setScreen("home"); };
+  const markDayDone = (pi,day) => { setCompletedDays(p=>({...p,[`${pi}-${day}`]:true})); setActiveDay(null); };
+  const navigate = (key) => { setActiveProgram(null); setActiveDay(null); setScreen(key); setMenuOpen(false); if(key!=="premium") setEspaceViewGlobal(null); };
+
+  return (
+    <div style={{...s.root, background:t.bg}}>
+      <div style={{...s.glow1, background:`radial-gradient(circle,${t.glow1} 0%,transparent 70%)`}}/>
+      <div style={{...s.glow2, background:`radial-gradient(circle,${t.glow2} 0%,transparent 70%)`}}/>
+      <div style={{...s.glow3, background:`radial-gradient(circle,${t.glow3} 0%,transparent 70%)`}}/>
+      <div style={{...s.phone, background:t.phoneBg, border:`1px solid ${t.border}`}}>
+        <CornerDecor pos="tl"/><CornerDecor pos="tr"/>
+        <div style={{...s.statusBar,position:"relative"}}>
+          <span style={s.statusTime}>9:41</span>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {isPremium && <span style={s.premiumPill}><StarIcon size={9} color="#D4AF7A"/> Premium</span>}
+            <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",lineHeight:1}}>
+              <span style={{color:menuOpen?"#C4A4E0":"rgba(196,164,224,0.4)",fontSize:11,letterSpacing:2,transition:"color 0.2s"}}>● ● ●</span>
+            </button>
+          </div>
+          {menuOpen && (
+            <div style={{position:"absolute",top:38,right:20,background:"#1A1428",border:"1px solid rgba(196,164,224,0.18)",borderRadius:14,padding:"6px 0",zIndex:100,minWidth:180,boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}>
+              {[
+                { emoji:"👤", label: DEMO_MODE ? "Mon compte" : (session?.user?.email || "Mon compte"), action:()=>{ setMenuOpen(false); navigate("premium"); } },
+                { emoji:"🎨", label:"Changer de thème", action:()=>{ setMenuOpen(false); setEspaceViewGlobal("themes"); navigate("premium"); } },
+                { emoji:"🚨", label:"Mode crise", action:()=>{ setMenuOpen(false); navigate("crise"); } },
+              ].map(({emoji,label,action})=>(
+                <button key={label} onClick={action} style={{width:"100%",background:"none",border:"none",padding:"11px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",textAlign:"left"}}>
+                  <span style={{fontSize:15}}>{emoji}</span>
+                  <span style={{color:"rgba(232,213,245,0.8)",fontSize:12,fontFamily:"Georgia,serif",letterSpacing:0.3}}>{label}</span>
+                </button>
+              ))}
+              {!DEMO_MODE && session && (
+                <>
+                  <div style={{height:"1px",background:"rgba(196,164,224,0.08)",margin:"4px 0"}}/>
+                  <button onClick={()=>{setMenuOpen(false);handleLogout();}} style={{width:"100%",background:"none",border:"none",padding:"11px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",textAlign:"left"}}>
+                    <span style={{fontSize:15}}>🚪</span>
+                    <span style={{color:"rgba(232,155,155,0.7)",fontSize:12,fontFamily:"Georgia,serif",letterSpacing:0.3}}>Déconnexion</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div style={s.content}>
+          {!DEMO_MODE && !authChecked && (
+            <div style={{...s.screen,display:"flex",alignItems:"center",justifyContent:"center",minHeight:300}}>
+              <p style={{color:"rgba(196,164,224,0.4)",fontSize:12,fontStyle:"italic"}}>Chargement...</p>
+            </div>
+          )}
+          {!DEMO_MODE && authChecked && !session && <AuthScreen onAuthed={()=>{}}/>}
+          {(DEMO_MODE || (authChecked && session)) && (
+            <>
+              {screen==="home" && <HomeScreen affirmation={affirmations[affIdx]} onNextAff={nextAff} streak={streak} onNavigate={navigate} isPremium={isPremium} isFavorite={isFavorite} onToggleFavorite={toggleFavorite}/>}
+              {screen==="parcours" && <ParcoursScreen activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} goBack={()=>goBack()} onGoPremium={()=>navigate("premium")}/>}
+              {screen==="humeur" && <HumeurScreen selected={selectedMood} setSelected={setSelectedMood} goBack={()=>goBack()}/>}
+              {screen==="journal" && <JournalScreen text={journalText} setText={setJournalText} prompt={prompts[promptIdx]} onNextPrompt={nextPrompt} onSave={saveJournal} saved={saved} goBack={()=>goBack()} entries={journalEntries} demoMode={DEMO_MODE}/>}
+              {screen==="exercices" && <ExercicesScreen exercises={exercises} breathing={breathing} breathPhase={breathPhase} onStartBreath={runBreath} goBack={()=>goBack()}/>}
+              {screen==="crise" && <CriseScreen goBack={()=>goBack()}/>}
+              {screen==="ritual" && <RitualScreen goBack={()=>goBack()} isPremium={isPremium} onGoPremium={()=>navigate("premium")}/>}
+              {screen==="meditations-libres" && <MeditationsLibresScreen goBack={()=>goBack()} isPremium={isPremium} onGoPremium={()=>navigate("premium")}/>}
+              {screen==="communaute" && <CommunityScreen goBack={()=>goBack()} session={session} demoMode={DEMO_MODE}/>}
+              {screen==="pardon" && <PardonScreen pardonTarget={pardonTarget} setPardonTarget={setPardonTarget} pardonStep={pardonStep} setPardonStep={setPardonStep} pardonTexts={pardonTexts} setPardonTexts={setPardonTexts} pardonAffIdx={pardonAffIdx} setPardonAffIdx={setPardonAffIdx} pardonDone={pardonDone} setPardonDone={setPardonDone} goBack={()=>goBack(resetPardon)}/>}
+              {screen==="premium" && <PremiumScreen isPremium={isPremium} premiumPlan={premiumPlan} setPremiumPlan={setPremiumPlan} onSubscribe={handleSubscribe} premiumSuccess={premiumSuccess} goBack={()=>goBack()} setScreen={setScreen} activeProgram={activeProgram} setActiveProgram={setActiveProgram} activeDay={activeDay} setActiveDay={setActiveDay} completedDays={completedDays} markDayDone={markDayDone} demoMode={DEMO_MODE} userEmail={session?.user?.email} onLogout={handleLogout} onRefreshStatus={refreshProfile} themeId={themeId} setThemeId={setThemeId} initialEspaceView={espaceViewGlobal} onClearEspaceView={()=>setEspaceViewGlobal(null)} favorites={favorites} journalEntries={journalEntries}/>}
+            </>
+          )}
+        </div>
+        {(DEMO_MODE || (authChecked && session)) && <BottomNav screen={screen} onNavigate={navigate} isPremium={isPremium}/>}
+      </div>
+    </div>
+  );
+}
+
+function BackBtn({ goBack, label }) {
+  return (
+    <button style={s.backBtn} onClick={goBack}>
+      <span style={{color:"#9B6FD4",marginRight:4}}>←</span> {label||"Retour"}
+    </button>
+  );
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+function HomeScreen({ affirmation, onNextAff, streak, onNavigate, isPremium, isFavorite, onToggleFavorite }) {
+  const fav = isFavorite(affirmation);
+  return (
+    <div style={s.screen}>
+      <div style={s.homeHeader}>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+            <CompassRose size={22} color="#9B6FD4"/>
+            <p style={s.greeting}>S'aimer. Grandir. Rayonner.</p>
+          </div>
+          <h1 style={s.appName}>Lumière</h1>
+        </div>
+        <div style={s.streakBadge}>
+          <StarIcon size={14} color="#D4AF7A"/>
+          <span style={s.streakNum}>{streak}</span>
+          <span style={s.streakLabel}>jours</span>
+        </div>
+      </div>
+
+      <Divider/>
+
+      <div style={s.affCard}>
+        <CornerDecor pos="tl"/><CornerDecor pos="tr"/><CornerDecor pos="bl"/><CornerDecor pos="br"/>
+        <SectionLabel color="#D4AF7A">Affirmation du jour</SectionLabel>
+        <p style={s.affText}>"{affirmation}"</p>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button style={s.affBtn} onClick={onNextAff}>
+            <StarIcon size={11} color="#9B6FD4"/> Nouvelle affirmation
+          </button>
+          <button onClick={()=>onToggleFavorite(affirmation)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",padding:"4px",lineHeight:1,opacity:fav?1:0.4,transition:"opacity 0.2s"}} title={fav?"Retirer des favoris":"Ajouter aux favoris"}>
+            {fav?"💜":"🤍"}
+          </button>
+        </div>
+      </div>
+
+      <Divider/>
+      <SectionLabel>Navigation</SectionLabel>
+
+      <div style={s.quickGrid}>
+        {[
+          { icon:<span style={{fontSize:18}}>🧭</span>, label:"Parcours", key:"parcours", color:"#D4AF7A" },
+          { icon:<EyeIcon size={20} color="#C4A4E0"/>, label:"Mon humeur", key:"humeur", color:"#7B8CDE" },
+          { icon:<span style={{fontSize:18}}>📖</span>, label:"Journal", key:"journal", color:"#9B6FD4" },
+          { icon:<span style={{fontSize:18}}>🎙️</span>, label:"Méditations", key:"meditations-libres", color:"#C4A4E0" },
+          { icon:<span style={{fontSize:18}}>🌿</span>, label:"Exercices", key:"exercices", color:"#A8C5A0" },
+          { icon:<span style={{fontSize:18}}>🕊️</span>, label:"Pardon", key:"pardon", color:"#C4A4E0" },
+        ].map(item => (
+          <button key={item.key} style={{...s.quickCard, borderTop:`2px solid ${item.color}40`, borderColor:`${item.color}30`}} onClick={()=>onNavigate(item.key)}>
+            {item.icon}
+            <span style={{...s.quickLabel,color:item.color}}>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {isPremium && (
+        <button onClick={()=>onNavigate("ritual")} style={{...s.mysticalCard,width:"100%",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,border:"1px solid rgba(212,175,122,0.2)",marginBottom:10}}>
+          <span style={{fontSize:22}}>{new Date().getHours()<12?"🌅":new Date().getHours()<18?"☀️":"🌙"}</span>
+          <div style={{flex:1}}>
+            <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontStyle:"italic"}}>
+              {new Date().getHours()<12?"Rituel du matin":new Date().getHours()<18?"Pause du milieu de journée":"Rituel du soir"}
+            </p>
+            <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:0,letterSpacing:0.3}}>Commence ta routine guidée →</p>
+          </div>
+        </button>
+      )}
+
+      {!isPremium ? (
+        <button style={s.premiumBanner} onClick={()=>onNavigate("premium")}>
+          <StarIcon size={18} color="#D4AF7A"/>
+          <div style={{flex:1,textAlign:"left"}}>
+            <p style={s.bannerTitle}>Découvre Lumière Premium</p>
+            <p style={s.bannerSub}>8 parcours guidés · Méditations · Mode crise</p>
+          </div>
+          <span style={{color:"#D4AF7A",fontSize:16}}>→</span>
+        </button>
+      ) : (
+        <div style={s.tipCard}>
+          <EyeIcon size={18} color="#9B6FD4"/>
+          <p style={s.tipText}>S'aimer ne veut pas dire être parfait(e), ça veut dire être de son côté.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── HUMEUR ───────────────────────────────────────────────────────────────────
+function HumeurScreen({ selected, setSelected, goBack }) {
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack}/>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <EyeIcon size={24} color="#9B6FD4"/>
+        <h2 style={s.screenTitle}>Comment tu te sens ?</h2>
+      </div>
+      <p style={s.screenSub}>Il n'y a pas de bonne réponse. Juste la tienne.</p>
+      <Divider/>
+      <div style={s.moodGrid}>
+        {moodOptions.map(m=>(
+          <button key={m.label} style={{...s.moodCard, background:selected?.label===m.label?`${m.color}22`:"rgba(196,164,224,0.04)", border:selected?.label===m.label?`1px solid ${m.color}`:"1px solid rgba(196,164,224,0.15)", transform:selected?.label===m.label?"scale(1.04)":"scale(1)"}} onClick={()=>setSelected(m)}>
+            <span style={{fontSize:32}}>{m.emoji}</span>
+            <span style={{color:selected?.label===m.label?m.color:"rgba(232,213,245,0.7)",fontSize:12}}>{m.label}</span>
+          </button>
+        ))}
+      </div>
+      {selected && (
+        <div style={{...s.mysticalCard, borderColor:`${selected.color}40`}}>
+          <StarIcon size={12} color={selected.color} style={{marginBottom:8,display:"block",margin:"0 auto 8px"}}/>
+          <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,lineHeight:1.7,margin:"0 0 16px",fontStyle:"italic",textAlign:"center"}}>
+            {selected.label==="Difficile"&&"C'est ok d'avoir une journée difficile. Tu n'as pas à faire semblant."}
+            {selected.label==="Neutre"&&"Ni bien ni mal, juste là. C'est déjà quelque chose."}
+            {selected.label==="Bien"&&"C'est beau, garde ça précieusement aujourd'hui."}
+            {selected.label==="Lumineuse"&&"Tu rayonnes ! Partage un peu de cette lumière avec toi-même."}
+          </p>
+          <button style={s.validateBtn} onClick={goBack}>Enregistrer</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── JOURNAL ──────────────────────────────────────────────────────────────────
+function JournalScreen({ text, setText, prompt, onNextPrompt, onSave, saved, goBack, entries, demoMode }) {
+  const [view, setView] = useState("write"); // write | history
+
+  const formatDate = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+  };
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack}/>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <span style={{fontSize:22}}>📖</span>
+        <h2 style={s.screenTitle}>Mon journal</h2>
+      </div>
+
+      <div style={{display:"flex",borderBottom:"1px solid rgba(196,164,224,0.1)",marginBottom:16}}>
+        {[["write","✍️ Écrire"],["history","📚 Historique"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setView(k)} style={{flex:1,background:"transparent",border:"none",padding:"9px 0",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:0.5,color:view===k?"#C4A4E0":"rgba(196,164,224,0.35)",borderBottom:view===k?"1px solid #9B6FD4":"1px solid transparent"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {view==="write" && (
+        <>
+          <div style={s.mysticalCard}>
+            <SectionLabel color="#C4A4E0">Question du jour</SectionLabel>
+            <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,lineHeight:1.6,margin:"0 0 10px",fontStyle:"italic"}}>{prompt}</p>
+            <button style={s.ghostBtn} onClick={onNextPrompt}>Autre question →</button>
+          </div>
+          <textarea style={s.textarea} placeholder="Écris librement, sans jugement..." value={text} onChange={e=>setText(e.target.value)}/>
+          <button style={{...s.validateBtn,width:"100%",marginTop:12}} onClick={onSave}>
+            {saved?"✓ Sauvegardé":"Sauvegarder"}
+          </button>
+        </>
+      )}
+
+      {view==="history" && (
+        <div>
+          {demoMode && (
+            <div style={{...s.mysticalCard,textAlign:"center",marginBottom:14}}>
+              <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,fontStyle:"italic",lineHeight:1.6}}>L'historique est disponible une fois connectée à ton compte.</p>
+            </div>
+          )}
+          {!demoMode && entries.length===0 && (
+            <div style={{textAlign:"center",padding:"32px 0"}}>
+              <span style={{fontSize:32}}>📝</span>
+              <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>Ton journal est vide pour l'instant.<br/>Commence à écrire pour retrouver tes entrées ici.</p>
+            </div>
+          )}
+          {!demoMode && entries.map(entry=>(
+            <div key={entry.id} style={{...s.mysticalCard,marginBottom:10}}>
+              <p style={{color:"rgba(212,175,122,0.6)",fontSize:10,margin:"0 0 6px",letterSpacing:0.5}}>{formatDate(entry.created_at)}</p>
+              {entry.prompt && <p style={{color:"rgba(196,164,224,0.5)",fontSize:11,fontStyle:"italic",margin:"0 0 8px",lineHeight:1.5}}>« {entry.prompt} »</p>}
+              <p style={{color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,margin:0}}>{entry.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── EXERCICES ────────────────────────────────────────────────────────────────
+function ExercicesScreen({ exercises, breathing, breathPhase, onStartBreath, goBack }) {
+  const isInspire = breathing && breathPhase==="inspire";
+  const isExpire = breathing && breathPhase==="expire";
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack}/>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <span style={{fontSize:22}}>🌿</span>
+        <h2 style={s.screenTitle}>Exercices doux</h2>
+      </div>
+      <p style={s.screenSub}>Quelques minutes pour toi, maintenant.</p>
+      <Divider/>
+
+      <div style={s.breathBox}>
+        <CornerDecor pos="tl"/><CornerDecor pos="tr"/><CornerDecor pos="bl"/><CornerDecor pos="br"/>
+        <SectionLabel color="#A8C5A0">Respiration guidée</SectionLabel>
+        <div style={{...s.breathCircle, transform:isInspire?"scale(1.45)":"scale(1)", transition:isInspire?"transform 4s ease-in-out":isExpire?"transform 6s ease-in-out":"transform 0.4s", background:breathing?(isInspire?"radial-gradient(circle,#9B6FD4,#C4A4E0)":"radial-gradient(circle,#1a0f2e,#2d1b4e)"):"radial-gradient(circle,rgba(155,111,212,0.3),rgba(196,164,224,0.1))", boxShadow:breathing&&isInspire?"0 0 40px rgba(155,111,212,0.4)":"none"}}/>
+        <p style={{color:"rgba(232,213,245,0.7)",fontSize:14,margin:0,fontStyle:"italic",minHeight:22}}>
+          {breathPhase==="idle"&&"Commence quand tu es prêt(e)"}
+          {breathPhase==="inspire"&&"Inspire doucement..."}
+          {breathPhase==="expire"&&"Expire lentement..."}
+          {breathPhase==="done"&&"Bravo. Tu as bien respiré."}
+        </p>
+        {(!breathing&&breathPhase!=="done")&&<button style={s.ghostBtn} onClick={onStartBreath}>Commencer</button>}
+        {breathPhase==="done"&&<button style={s.ghostBtn} onClick={onStartBreath}>Recommencer</button>}
+      </div>
+
+      <SectionLabel>Pratiques</SectionLabel>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {exercises.map(ex=>(
+          <div key={ex.title} style={s.exerciseCard}>
+            <span style={{fontSize:24,flexShrink:0}}>{ex.icon}</span>
+            <div style={{flex:1}}>
+              <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 3px",fontWeight:"bold"}}>{ex.title}</p>
+              <p style={{color:"rgba(196,164,224,0.6)",fontSize:11,margin:0,lineHeight:1.4}}>{ex.desc}</p>
+            </div>
+            <span style={{color:"#A8C5A0",fontSize:10,background:"rgba(168,197,160,0.1)",border:"1px solid rgba(168,197,160,0.2)",borderRadius:6,padding:"3px 8px",flexShrink:0}}>{ex.duration}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── PARDON ───────────────────────────────────────────────────────────────────
+function PardonScreen({ pardonTarget,setPardonTarget,pardonStep,setPardonStep,pardonTexts,setPardonTexts,pardonAffIdx,setPardonAffIdx,pardonDone,setPardonDone,goBack }) {
+  const step = pardonSteps[pardonStep];
+  const updateText = val=>{const t=[...pardonTexts];t[pardonStep]=val;setPardonTexts(t);};
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack}/>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <span style={{fontSize:22}}>🕊️</span>
+        <h2 style={s.screenTitle}>Le chemin du pardon</h2>
+      </div>
+      <p style={s.screenSub}>Se pardonner, c'est se choisir.</p>
+      <Divider/>
+
+      {!pardonTarget&&!pardonDone&&(
+        <div>
+          <div style={{...s.mysticalCard,marginBottom:16}}>
+            <p style={{color:"rgba(196,164,224,0.8)",fontSize:13,lineHeight:1.7,fontStyle:"italic",margin:0,textAlign:"center"}}>La culpabilité est un poids que nous portons souvent seul(e). Le pardon est l'acte le plus courageux qui soit.</p>
+          </div>
+          <SectionLabel>Je souhaite travailler sur...</SectionLabel>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            {[
+              {key:"soi",icon:"🫂",title:"Me pardonner",desc:"Une erreur, une décision que je regrette envers moi-même.",color:"#C4A4E0"},
+              {key:"autre",icon:"🤝",title:"Pardonner à l'autre",desc:"Libérer une rancœur pour retrouver ma paix intérieure.",color:"#A8C5A0"},
+            ].map(t=>(
+              <button key={t.key} style={{background:"rgba(196,164,224,0.05)",border:`1px solid ${t.color}30`,borderRadius:16,padding:"18px 12px",cursor:"pointer",textAlign:"center",transition:"all 0.2s"}} onClick={()=>setPardonTarget(t.key)}>
+                <span style={{fontSize:28,display:"block",marginBottom:8}}>{t.icon}</span>
+                <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,fontWeight:"bold",margin:"0 0 6px"}}>{t.title}</p>
+                <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,lineHeight:1.4,margin:0}}>{t.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pardonTarget&&!pardonDone&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"center",alignItems:"center",marginBottom:20,gap:0}}>
+            {pardonSteps.map((st,i)=>(
+              <div key={st.id} style={{display:"flex",alignItems:"center"}}>
+                <div style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:"bold",color:i<=pardonStep?"#0D0A12":"rgba(196,164,224,0.4)",background:i<=pardonStep?step.color:"rgba(196,164,224,0.1)",border:`1px solid ${i<=pardonStep?step.color:"rgba(196,164,224,0.15)"}`}}>
+                  {i<pardonStep?"✓":i+1}
+                </div>
+                {i<2&&<div style={{width:28,height:1,background:i<pardonStep?step.color:"rgba(196,164,224,0.15)"}}/>}
+              </div>
+            ))}
+          </div>
+          <div style={{...s.mysticalCard,borderColor:`${step.color}30`,marginBottom:14}}>
+            <SectionLabel color={step.color}>Étape {pardonStep+1}</SectionLabel>
+            <p style={{color:"rgba(232,213,245,0.95)",fontSize:16,fontStyle:"italic",margin:"0 0 8px"}}>{step.title}</p>
+            <p style={{color:"rgba(196,164,224,0.7)",fontSize:13,lineHeight:1.6,margin:0}}>{step.desc}</p>
+          </div>
+          <textarea style={s.textarea} placeholder={step.prompt} value={pardonTexts[pardonStep]} onChange={e=>updateText(e.target.value)}/>
+          <div style={{display:"flex",gap:10,marginTop:14}}>
+            {pardonStep>0&&<button style={{...s.ghostBtn,padding:"12px 16px"}} onClick={()=>setPardonStep(p=>p-1)}>← Retour</button>}
+            <button style={{...s.validateBtn,flex:1,opacity:pardonTexts[pardonStep].trim()?1:0.4}} onClick={()=>{if(!pardonTexts[pardonStep].trim())return;if(pardonStep<2)setPardonStep(p=>p+1);else setPardonDone(true);}}>
+              {pardonStep<2?"Continuer →":"Finaliser"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pardonDone&&(
+        <div style={{textAlign:"center",paddingTop:8}}>
+          <span style={{fontSize:48,display:"block",marginBottom:12}}>🕊️</span>
+          <h3 style={{color:"rgba(232,213,245,0.95)",fontSize:19,fontStyle:"italic",fontWeight:"normal",margin:"0 0 10px"}}>Tu as fait quelque chose de courageux.</h3>
+          <p style={{color:"rgba(196,164,224,0.7)",fontSize:13,lineHeight:1.7,margin:"0 0 18px",fontStyle:"italic"}}>
+            {pardonTarget==="soi"?"Te pardonner, c'est te remettre de ton côté.":"Pardonner à l'autre, c'est choisir ta liberté."}
+          </p>
+          <div style={{...s.mysticalCard,textAlign:"left",marginBottom:18}}>
+            <SectionLabel color="#D4AF7A">Pour sceller ce moment</SectionLabel>
+            <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,fontStyle:"italic",lineHeight:1.6,margin:"0 0 10px"}}>"{pardonAffirmations[pardonAffIdx]}"</p>
+            <button style={s.ghostBtn} onClick={()=>setPardonAffIdx(i=>(i+1)%pardonAffirmations.length)}>Autre affirmation →</button>
+          </div>
+          <button style={{...s.validateBtn,width:"100%"}} onClick={()=>{setPardonTarget(null);setPardonStep(0);setPardonTexts(["","",""]);setPardonDone(false);}}>Nouveau chemin de pardon</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PARCOURS (gratuit, accessible depuis l'accueil) ─────────────────────────
+function DayDetailView({ activeProgram, activeDay, completedDays, markDayDone, onBack }) {
+  const prog = programs[activeProgram];
+  const days = buildDayList(prog);
+  const info = days.find(d=>d.day===activeDay);
+  const ct = challengeTypes[info.type];
+  const done = completedDays[`${activeProgram}-${activeDay}`];
+  const [journalText, setJournalText] = useState("");
+  const [journalSaved, setJournalSaved] = useState(false);
+  const saveJournal = () => { if (journalText.trim()) { setJournalSaved(true); setTimeout(()=>setJournalSaved(false), 2500); } };
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={onBack} label="← Parcours"/>
+      <SectionLabel color={prog.color}>{info.phase.name} · Jour {activeDay}/{prog.duration}</SectionLabel>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+        <div style={{width:38,height:38,borderRadius:10,background:`${ct.color}20`,border:`1px solid ${ct.color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{ct.icon}</div>
+        <h2 style={{...s.screenTitle,margin:0,fontSize:18}}>{ct.label}</h2>
+      </div>
+
+      {info.type==="affirmation" && (
+        <div style={{...s.mysticalCard,borderColor:`${ct.color}30`,marginBottom:18,textAlign:"center"}}>
+          <p style={{color:"rgba(232,213,245,0.92)",fontSize:16,fontStyle:"italic",lineHeight:1.7,margin:0}}>"{info.content}"</p>
+        </div>
+      )}
+
+      {info.type==="meditation" && (
+        <div style={{...s.mysticalCard,borderColor:`${ct.color}30`,marginBottom:18}}>
+          <p style={{color:"rgba(232,213,245,0.92)",fontSize:16,fontStyle:"italic",margin:"0 0 8px"}}>{info.content[0]}</p>
+          <span style={{display:"inline-block",color:"#9B6FD4",fontSize:10,background:"rgba(155,111,212,0.12)",border:"1px solid rgba(155,111,212,0.25)",borderRadius:6,padding:"3px 9px",marginBottom:10}}>{info.content[1]}</span>
+          <p style={{color:"rgba(196,164,224,0.75)",fontSize:13,lineHeight:1.7,margin:0}}>{info.content[2]}</p>
+        </div>
+      )}
+
+      {info.type==="journal" && (
+        <div>
+          <div style={{...s.mysticalCard,borderColor:`${ct.color}30`,marginBottom:12,textAlign:"center"}}>
+            <p style={{color:"rgba(232,213,245,0.92)",fontSize:15,fontStyle:"italic",lineHeight:1.7,margin:0}}>{info.content}</p>
+          </div>
+          <textarea style={{...s.textarea,marginBottom:12}} placeholder="Écris librement, sans jugement..." value={journalText} onChange={e=>setJournalText(e.target.value)}/>
+          <button style={{...s.validateBtn,width:"100%",marginBottom:18}} onClick={saveJournal}>
+            {journalSaved?"✓ Sauvegardé":"Sauvegarder"}
+          </button>
+        </div>
+      )}
+
+      {info.type==="action" && (
+        <div style={{...s.mysticalCard,borderColor:`${ct.color}30`,marginBottom:18}}>
+          <p style={{color:"rgba(232,213,245,0.88)",fontSize:14,lineHeight:1.8,margin:0}}>{info.content}</p>
+        </div>
+      )}
+
+      <div style={{position:"sticky",bottom:0,paddingTop:12,paddingBottom:2,background:"linear-gradient(to top, #0D0A12 60%, rgba(13,10,18,0))"}}>
+        <button style={{...s.validateBtn,width:"100%",background:done?"rgba(168,197,160,0.15)":"linear-gradient(135deg,#9B6FD4,#C4A4E0)",color:done?"#A8C5A0":"#0D0A12",border:done?"1px solid rgba(168,197,160,0.35)":"none"}} onClick={()=>!done&&markDayDone(activeProgram,activeDay)}>
+          {done?"Journée complétée ✓":"Marquer comme fait"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProgramDetailView({ activeProgram, completedDays, onSelectDay, onBack }) {
+  const prog = programs[activeProgram];
+  const days = buildDayList(prog);
+  const doneCount = days.filter(d=>completedDays[`${activeProgram}-${d.day}`]).length;
+  const pct = Math.round((doneCount/prog.duration)*100);
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={onBack} label="← Parcours"/>
+      <SectionLabel color={prog.color}>{prog.duration} jours</SectionLabel>
+      <h2 style={{...s.screenTitle,margin:"0 0 8px"}}>{prog.emoji} {prog.theme}</h2>
+      <p style={{color:"rgba(196,164,224,0.65)",fontSize:13,lineHeight:1.6,fontStyle:"italic",margin:"0 0 14px"}}>{prog.intro}</p>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
+        <div style={{flex:1,height:5,background:"rgba(196,164,224,0.1)",borderRadius:3,overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${prog.color},#D4AF7A)`,borderRadius:3,transition:"width 0.5s"}}/>
+        </div>
+        <span style={{color:prog.color,fontSize:11,fontWeight:"bold"}}>{doneCount}/{prog.duration}</span>
+      </div>
+
+      {prog.phases.map((phase,pIdx)=>(
+        <div key={pIdx} style={{marginBottom:14}}>
+          <SectionLabel color={prog.color}>{phase.name} · Jours {phase.start}-{phase.end}</SectionLabel>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {days.filter(d=>d.phaseIdx===pIdx).map(d=>{
+              const ct = challengeTypes[d.type];
+              const done = completedDays[`${activeProgram}-${d.day}`];
+              return (
+                <button key={d.day} style={{...s.exerciseCard,cursor:"pointer",border:`1px solid ${done?prog.color+"50":"rgba(196,164,224,0.1)"}`,background:done?`${prog.color}0D`:"rgba(196,164,224,0.04)",textAlign:"left",padding:"10px 12px"}} onClick={()=>onSelectDay(d.day)}>
+                  <div style={{width:32,height:32,borderRadius:9,background:done?`${prog.color}25`:`${ct.color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:"bold",color:done?prog.color:ct.color,flexShrink:0}}>{done?"✓":ct.icon}</div>
+                  <div style={{flex:1}}>
+                    <p style={{color:done?"rgba(196,164,224,0.55)":"rgba(232,213,245,0.9)",fontSize:12,fontWeight:"bold",margin:"0 0 2px"}}>Jour {d.day}</p>
+                    <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:0}}>{ct.label}</p>
+                  </div>
+                  <span style={{color:"rgba(196,164,224,0.3)",fontSize:14}}>→</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ParcoursScreen({ activeProgram, setActiveProgram, activeDay, setActiveDay, completedDays, markDayDone, goBack, onGoPremium }) {
+  if (activeDay!==null && activeProgram!==null) {
+    return <DayDetailView key={`${activeProgram}-${activeDay}`} activeProgram={activeProgram} activeDay={activeDay} completedDays={completedDays} markDayDone={markDayDone} onBack={()=>setActiveDay(null)}/>;
+  }
+  if (activeProgram!==null) {
+    return <ProgramDetailView activeProgram={activeProgram} completedDays={completedDays} onSelectDay={setActiveDay} onBack={()=>setActiveProgram(null)}/>;
+  }
+
+  const freeIndices = programs.map((p,i)=>i).filter(i=>!programs[i].locked);
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack}/>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <span style={{fontSize:22}}>🧭</span>
+        <h2 style={s.screenTitle}>Tes parcours</h2>
+      </div>
+      <p style={s.screenSub}>3 parcours guidés, gratuits, pour commencer ton chemin.</p>
+      <Divider/>
+
+      <ProgramList indices={freeIndices} completedDays={completedDays} setActiveProgram={setActiveProgram} isPremium={false} showBadges={false}/>
+
+      <div style={{...s.mysticalCard,textAlign:"center",marginTop:8}}>
+        <SectionLabel color="#D4AF7A">Et ensuite ?</SectionLabel>
+        <p style={{color:"rgba(196,164,224,0.65)",fontSize:12,lineHeight:1.6,margin:"0 0 14px",fontStyle:"italic"}}>5 parcours supplémentaires t'attendent dans l'espace Premium : transition de vie, relation au corps, paix intérieure et plus encore.</p>
+        <button style={{...s.validateBtn,width:"100%"}} onClick={onGoPremium}>Découvrir Premium →</button>
+      </div>
+    </div>
+  );
+}
+
+
+function PremiumScreen({ isPremium,premiumPlan,setPremiumPlan,onSubscribe,premiumSuccess,goBack,setScreen,activeProgram,setActiveProgram,activeDay,setActiveDay,completedDays,markDayDone,demoMode,userEmail,onLogout,onRefreshStatus,themeId,setThemeId,initialEspaceView,onClearEspaceView,favorites,journalEntries }) {
+  const [tab, setTab] = useState("programmes");
+  const [espaceView, setEspaceView] = useState(initialEspaceView || null);
+
+  useEffect(() => {
+    if (initialEspaceView) { setEspaceView(initialEspaceView); if(onClearEspaceView) onClearEspaceView(); }
+  }, [initialEspaceView]);
+
+  if (espaceView==="crise") return <CriseScreen goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="stats") return <StatsScreen completedDays={completedDays} goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="meditations") return <MeditationsScreen goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="bibliotheque") return <BibliothequeScreen goBack={()=>setEspaceView(null)}/>;
+  if (espaceView==="themes") return <ThemesScreen goBack={()=>setEspaceView(null)} themeId={themeId} setThemeId={setThemeId}/>;
+  if (espaceView==="favoris") return <FavoritesScreen goBack={()=>setEspaceView(null)} favorites={favorites}/>;
+  if (espaceView==="historique") return <HistoriqueScreen goBack={()=>setEspaceView(null)} entries={journalEntries}/>;
+
+
+  if (activeDay!==null && activeProgram!==null) {
+    return <DayDetailView key={`${activeProgram}-${activeDay}`} activeProgram={activeProgram} activeDay={activeDay} completedDays={completedDays} markDayDone={markDayDone} onBack={()=>setActiveDay(null)}/>;
+  }
+
+  if (activeProgram!==null) {
+    return <ProgramDetailView activeProgram={activeProgram} completedDays={completedDays} onSelectDay={setActiveDay} onBack={()=>setActiveProgram(null)}/>;
+  }
+
+  if (isPremium) return (
+    <div style={s.screen}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+        <h2 style={{...s.screenTitle,margin:0}}>{tab==="programmes"?"Mes parcours":"Mon espace"}</h2>
+        <span style={s.premiumPill}><StarIcon size={9} color="#D4AF7A"/> Premium</span>
+      </div>
+      <div style={{display:"flex",borderBottom:"1px solid rgba(196,164,224,0.1)",marginBottom:16}}>
+        {["programmes","espace"].map(t=>(
+          <button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"transparent",border:"none",padding:"8px 0",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:1,color:tab===t?"#C4A4E0":"rgba(196,164,224,0.35)",borderBottom:tab===t?"1px solid #9B6FD4":"1px solid transparent"}}>
+            {t==="programmes"?"PARCOURS":"MON ESPACE"}
+          </button>
+        ))}
+      </div>
+
+      {tab==="programmes" && <ProgramList indices={programs.map((_,i)=>i)} completedDays={completedDays} setActiveProgram={setActiveProgram} isPremium={true} showBadges={false}/>}
+
+      {tab==="espace"&&(
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
+            {[
+              ["🎙️","Méditations","meditations"],
+              ["📊","Stats","stats"],
+              ["🚨","Crise","crise"],
+              ["🗓️","Parcours","programmes"],
+              ["📚","Bibliothèque","bibliotheque"],
+              ["🎨","Thèmes","themes"],
+              ["💜","Mes favoris","favoris"],
+              ["📝","Mon journal","historique"],
+            ].map(([ic,lb,key])=>(
+              <div key={lb} onClick={()=>{ if(key==="programmes") setTab("programmes"); else setEspaceView(key); }} style={{background:"rgba(155,111,212,0.07)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:14,padding:"14px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:"pointer"}}>
+                <span style={{fontSize:20}}>{ic}</span>
+                <p style={{color:"rgba(196,164,224,0.65)",fontSize:9,margin:0,textAlign:"center",letterSpacing:0.5}}>{lb}</p>
+              </div>
+            ))}
+          </div>
+          <div style={s.mysticalCard}>
+            <SectionLabel color="#D4AF7A">Parcours en cours</SectionLabel>
+            <p style={{color:"rgba(232,213,245,0.9)",fontSize:16,fontStyle:"italic",margin:"0 0 4px"}}>{programs[0].emoji} {programs[0].theme}</p>
+            <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,margin:"0 0 12px"}}>Jour 3 sur {programs[0].duration}</p>
+            <div style={{height:4,background:"rgba(196,164,224,0.1)",borderRadius:2,overflow:"hidden",marginBottom:14}}>
+              <div style={{height:"100%",width:"14%",background:"linear-gradient(90deg,#9B6FD4,#D4AF7A)",borderRadius:2}}/>
+            </div>
+            <button style={{...s.validateBtn,width:"100%",fontSize:13}} onClick={()=>{setTab("programmes");setActiveProgram(0);}}>Continuer →</button>
+          </div>
+
+          {!demoMode && (
+            <div style={{...s.mysticalCard,marginTop:10}}>
+              <SectionLabel color="#9B6FD4">Mon compte</SectionLabel>
+              {userEmail && <p style={{color:"rgba(196,164,224,0.6)",fontSize:11,margin:"0 0 12px"}}>{userEmail}</p>}
+              <div style={{display:"flex",gap:10}}>
+                <button style={{...s.ghostBtn,flex:1}} onClick={onRefreshStatus}>Actualiser mon statut</button>
+                <button style={{...s.ghostBtn,flex:1,color:"#E89B9B",borderColor:"rgba(232,155,155,0.25)"}} onClick={onLogout}>Déconnexion</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack}/>
+      <div style={{textAlign:"center",padding:"10px 0 18px"}}>
+        <CompassRose size={36} color="#9B6FD4"/>
+        <h2 style={{...s.screenTitle,fontSize:26,marginTop:10}}>Lumière Premium</h2>
+        <p style={s.screenSub}>Ton espace de transformation, sans limite.</p>
+      </div>
+      <Divider/>
+
+      <div style={{display:"flex",borderBottom:"1px solid rgba(196,164,224,0.1)",marginBottom:18}}>
+        {["offre","contenu","parcours"].map(t=>(
+          <button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"transparent",border:"none",padding:"9px 0",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:1,color:tab===t?"#C4A4E0":"rgba(196,164,224,0.35)",borderBottom:tab===t?"1px solid #9B6FD4":"1px solid transparent"}}>
+            {t==="offre"?"OFFRE":t==="contenu"?"CONTENU":"PARCOURS"}
+          </button>
+        ))}
+      </div>
+
+      {tab==="offre"&&(
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+            {[
+              {key:"annual",label:"Annuel",price:"59,99 €",per:"/an",sub:"soit 5 €/mois",saving:"Économise 37%",color:"#D4AF7A",badge:"Meilleure offre"},
+              {key:"monthly",label:"Mensuel",price:"7,99 €",per:"/mois",sub:"Sans engagement",saving:"",color:"#9B6FD4",badge:null},
+            ].map(plan=>(
+              <button key={plan.key} onClick={()=>setPremiumPlan(plan.key)} style={{borderRadius:16,padding:"16px 12px",cursor:"pointer",textAlign:"center",position:"relative",transition:"all 0.2s",background:premiumPlan===plan.key?`${plan.color}10`:"rgba(196,164,224,0.03)",border:premiumPlan===plan.key?`1px solid ${plan.color}60`:"1px solid rgba(196,164,224,0.12)"}}>
+                {plan.badge&&<div style={{position:"absolute",top:-9,left:"50%",transform:"translateX(-50%)",background:`linear-gradient(135deg,${plan.color},#9B6FD4)`,color:"#0D0A12",fontSize:8,fontWeight:"bold",borderRadius:6,padding:"2px 8px",whiteSpace:"nowrap"}}>{plan.badge}</div>}
+                <p style={{color:"rgba(196,164,224,0.6)",fontSize:10,letterSpacing:2,textTransform:"uppercase",margin:"8px 0 6px"}}>{plan.label}</p>
+                <p style={{color:plan.color,fontSize:22,fontWeight:"bold",margin:"0 0 2px"}}>{plan.price}<span style={{fontSize:11,fontWeight:"normal",color:`${plan.color}80`}}>{plan.per}</span></p>
+                <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:"0 0 3px"}}>{plan.sub}</p>
+                <p style={{color:"#A8C5A0",fontSize:10,fontWeight:"bold",margin:0,minHeight:14}}>{plan.saving}</p>
+                {premiumPlan===plan.key&&<div style={{position:"absolute",top:8,right:8,background:plan.color,color:"#0D0A12",width:18,height:18,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:"bold"}}>✓</div>}
+              </button>
+            ))}
+          </div>
+
+          <button onClick={()=>setPremiumPlan("lifetime")} style={{width:"100%",background:premiumPlan==="lifetime"?"rgba(212,175,122,0.08)":"rgba(196,164,224,0.03)",border:premiumPlan==="lifetime"?"1px solid rgba(212,175,122,0.5)":"1px solid rgba(212,175,122,0.2)",borderRadius:14,padding:"14px 16px",cursor:"pointer",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{textAlign:"left"}}>
+              <p style={{color:"#D4AF7A",fontSize:9,letterSpacing:2,textTransform:"uppercase",margin:"0 0 3px"}}>Offre early adopter</p>
+              <p style={{color:"rgba(232,213,245,0.9)",fontSize:14,fontWeight:"bold",margin:"0 0 2px"}}>Accès à vie</p>
+              <p style={{color:"rgba(196,164,224,0.45)",fontSize:11,margin:0}}>Un seul paiement, pour toujours.</p>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <p style={{color:"#D4AF7A",fontSize:20,fontWeight:"bold",margin:0}}>149 €</p>
+              {premiumPlan==="lifetime"&&<span style={{color:"#D4AF7A",fontSize:16}}>✓</span>}
+            </div>
+          </button>
+
+          <button style={{...s.validateBtn,width:"100%",fontSize:14,padding:"14px 20px",background:premiumSuccess?"linear-gradient(135deg,#A8C5A0,#7B8CDE)":undefined}} onClick={onSubscribe}>
+            {premiumSuccess?"Bienvenue dans Lumière Premium !":`Commencer — ${premiumPlan==="annual"?"59,99 €/an":premiumPlan==="monthly"?"7,99 €/mois":"149 € à vie"}`}
+          </button>
+          <p style={{color:"rgba(196,164,224,0.25)",fontSize:9,textAlign:"center",margin:"10px 0 12px",letterSpacing:0.5}}>Annulation possible à tout moment · Paiement sécurisé</p>
+          <div style={{...s.mysticalCard,flexDirection:"row",gap:12,padding:"12px 14px"}}>
+            <span style={{fontSize:18}}>🛡️</span>
+            <p style={{color:"rgba(196,164,224,0.65)",fontSize:12,lineHeight:1.5,margin:0,fontStyle:"italic"}}>Satisfait(e) ou remboursé(e), 14 jours sans questions.</p>
+          </div>
+        </div>
+      )}
+
+      {tab==="contenu"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {["Permanent","Hebdo"].map(tag=>(
+            <div key={tag}>
+              <div style={{marginBottom:10}}>
+                <span style={{fontSize:9,borderRadius:6,padding:"3px 10px",letterSpacing:1,fontWeight:"bold",background:tag==="Permanent"?"rgba(212,175,122,0.1)":"rgba(168,197,160,0.1)",color:tag==="Permanent"?"#D4AF7A":"#A8C5A0",border:`1px solid ${tag==="Permanent"?"rgba(212,175,122,0.25)":"rgba(168,197,160,0.25)"}`}}>
+                  {tag==="Permanent"?"INCLUS À VIE":"CONTENU RÉGULIER"}
+                </span>
+              </div>
+              {premiumFeatures.filter(f=>f.tag===tag).map(f=>(
+                <div key={f.title} style={{...s.exerciseCard,marginBottom:8}}>
+                  <StarIcon size={14} color={tag==="Permanent"?"#D4AF7A":"#A8C5A0"}/>
+                  <div style={{flex:1}}>
+                    <p style={{color:"rgba(232,213,245,0.9)",fontSize:12,fontWeight:"bold",margin:"0 0 3px"}}>{f.title}</p>
+                    <p style={{color:"rgba(196,164,224,0.5)",fontSize:11,lineHeight:1.4,margin:0}}>{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+          <button style={{...s.validateBtn,width:"100%",marginTop:4}} onClick={()=>setTab("offre")}>Voir les tarifs →</button>
+        </div>
+      )}
+
+      {tab==="parcours"&&(
+        <div>
+          <p style={s.screenSub}>8 parcours guidés, de 14 à 30 jours. Un seul défi par jour : affirmation, méditation, journal ou action, selon la phase.</p>
+          <ProgramList indices={programs.map((_,i)=>i)} completedDays={completedDays} setActiveProgram={setActiveProgram} isPremium={false} showBadges={true}/>
+          <button style={{...s.validateBtn,width:"100%",marginTop:4}} onClick={()=>setTab("offre")}>Tout débloquer →</button>
+        </div>
+      )}
+
+      {!demoMode && (
+        <div style={{...s.mysticalCard,marginTop:14}}>
+          <SectionLabel color="#9B6FD4">Mon compte</SectionLabel>
+          {userEmail && <p style={{color:"rgba(196,164,224,0.6)",fontSize:11,margin:"0 0 12px"}}>{userEmail}</p>}
+          <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,lineHeight:1.5,margin:"0 0 12px",fontStyle:"italic"}}>Tu viens de souscrire ? Ton accès Premium se débloque automatiquement quelques instants après le paiement.</p>
+          <div style={{display:"flex",gap:10}}>
+            <button style={{...s.ghostBtn,flex:1}} onClick={onRefreshStatus}>Actualiser mon statut</button>
+            <button style={{...s.ghostBtn,flex:1,color:"#E89B9B",borderColor:"rgba(232,155,155,0.25)"}} onClick={onLogout}>Déconnexion</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProgramList({ indices, completedDays, setActiveProgram, isPremium, showBadges }) {
+  return (
+    <div>
+      {indices.map(i=>{
+        const p = programs[i];
+        const accessible = !p.locked || isPremium;
+        const doneCount = Array.from({length:p.duration},(_,k)=>k+1).filter(day=>completedDays[`${i}-${day}`]).length;
+        const pct = Math.round((doneCount/p.duration)*100);
+        return (
+          <button key={i} disabled={!accessible} onClick={()=>accessible&&setActiveProgram(i)} style={{...s.exerciseCard,flexDirection:"column",gap:8,padding:13,textAlign:"left",cursor:accessible?"pointer":"default",opacity:accessible?1:0.45,border:`1px solid ${accessible?p.color+"30":"rgba(196,164,224,0.08)"}`,background:"rgba(196,164,224,0.03)",marginBottom:9,width:"100%"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,width:"100%"}}>
+              <div style={{width:42,height:42,borderRadius:12,background:`${p.color}18`,border:`1px solid ${p.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0}}>
+                {accessible?p.emoji:"🔒"}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+                  <p style={{color:"rgba(232,213,245,0.9)",fontSize:12,fontWeight:"bold",margin:0}}>{p.theme}</p>
+                  {showBadges && p.locked && <span style={{fontSize:8,padding:"2px 6px",borderRadius:5,color:"#D4AF7A",border:"1px solid rgba(212,175,122,0.35)",background:"rgba(212,175,122,0.1)",letterSpacing:0.5}}>PREMIUM</span>}
+                  {showBadges && !p.locked && <span style={{fontSize:8,padding:"2px 6px",borderRadius:5,color:"#A8C5A0",border:"1px solid rgba(168,197,160,0.35)",background:"rgba(168,197,160,0.1)",letterSpacing:0.5}}>GRATUIT</span>}
+                </div>
+                <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:0}}>{p.duration} jours {!accessible?"· Réservé Premium":doneCount>0?`· ${pct}% complété`:"· Disponible"}</p>
+              </div>
+              {accessible&&<span style={{color:"rgba(196,164,224,0.3)",fontSize:14,flexShrink:0}}>→</span>}
+            </div>
+            {accessible&&doneCount>0&&(
+              <div style={{width:"100%",height:3,background:"rgba(196,164,224,0.08)",borderRadius:2,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${p.color},#D4AF7A)`,borderRadius:2}}/>
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── CRISE SCREEN ─────────────────────────────────────────────────────────────
+const criseExercises = [
+  { id:"breath", emoji:"🌬️", title:"Respiration 4-7-8", duration:"3 min", color:"#9B6FD4",
+    steps:[
+      { text:"Expire complètement par la bouche pour vider tes poumons.", timer:3 },
+      { text:"Inspire doucement par le nez en comptant jusqu'à 4.", timer:4 },
+      { text:"Retiens ton souffle en comptant jusqu'à 7.", timer:7 },
+      { text:"Expire lentement par la bouche en comptant jusqu'à 8.", timer:8 },
+      { text:"Inspire à nouveau en comptant jusqu'à 4.", timer:4 },
+      { text:"Retiens ton souffle en comptant jusqu'à 7.", timer:7 },
+      { text:"Expire lentement en comptant jusqu'à 8.", timer:8 },
+      { text:"Encore une fois. Inspire... 4 secondes.", timer:4 },
+      { text:"Retiens... 7 secondes.", timer:7 },
+      { text:"Expire lentement... 8 secondes.", timer:8 },
+      { text:"C'est terminé. Remarque la douceur qui s'est installée en toi.", timer:6 },
+    ]
+  },
+  { id:"anchor", emoji:"⚓", title:"Ancrage par les 5 sens", duration:"4 min", color:"#C4A4E0",
+    steps:[
+      { text:"Pose tes pieds bien à plat sur le sol. Sens ce contact, ce poids.", timer:8 },
+      { text:"Regarde autour de toi et nomme 5 choses que tu vois.", timer:12 },
+      { text:"Nomme 4 choses que tu peux toucher en ce moment.", timer:10 },
+      { text:"Nomme 3 sons que tu peux entendre, même très légers.", timer:10 },
+      { text:"Nomme 2 choses que tu peux sentir — une odeur, même subtile.", timer:8 },
+      { text:"Nomme 1 chose que tu peux goûter, ou simplement remarquer dans ta bouche.", timer:8 },
+      { text:"Tu es ici. Tu es en sécurité. Ce moment précis est stable.", timer:8 },
+    ]
+  },
+  { id:"comfort", emoji:"💜", title:"Phrases de réconfort", duration:"3 min", color:"#D4AF7A",
+    steps:[
+      { text:"Pose une main sur ton cœur. Sens sa chaleur.", timer:8 },
+      { text:"Répète intérieurement : \"Ce que je ressens est temporaire. Ça passera.\"", timer:10 },
+      { text:"Répète : \"Je n'ai pas besoin de tout gérer maintenant. Juste respirer.\"", timer:10 },
+      { text:"Répète : \"Je suis plus forte que ce moment difficile.\"", timer:10 },
+      { text:"Répète : \"Je mérite de la douceur, surtout maintenant.\"", timer:10 },
+      { text:"Répète une dernière fois celle qui t'a le plus touchée.", timer:12 },
+    ]
+  },
+  { id:"anger", emoji:"🔥", title:"Libérer la colère", duration:"4 min", color:"#E89B9B",
+    steps:[
+      { text:"Prends une feuille ou note sur ton téléphone — on va écrire sans filtre.", timer:6 },
+      { text:"Écris tout ce que tu ressens, sans censure. Colère, frustration, injustice. Tout.", timer:30 },
+      { text:"Maintenant relis ce que tu as écrit. Reconnais que ces émotions sont valides.", timer:12 },
+      { text:"Prends une grande inspiration... et expire lentement en imaginant relâcher un peu de cette tension.", timer:8 },
+      { text:"Écris une phrase : \"J'ai le droit de ressentir ça. Et je choisis de ne pas rester coincée ici.\"", timer:15 },
+      { text:"Tu peux garder ce que tu as écrit, ou l'effacer. Les deux sont valables.", timer:8 },
+    ]
+  },
+  { id:"body", emoji:"🌿", title:"Revenir à son corps", duration:"3 min", color:"#A8C5A0",
+    steps:[
+      { text:"Ferme les yeux. Prends deux respirations normales, sans rien forcer.", timer:10 },
+      { text:"Porte ton attention sur tes pieds. Sens-les, lourds, posés.", timer:8 },
+      { text:"Remonte vers tes jambes, ton ventre. Remarque les tensions sans les juger.", timer:10 },
+      { text:"Continue vers ta poitrine. Le mouvement de ta respiration, ce léger soulèvement.", timer:10 },
+      { text:"Tes épaules — laisse-les descendre. Ton visage — laisse chaque muscle se relâcher.", timer:10 },
+      { text:"Ton corps est là. Il te porte. Tu es en sécurité ici, maintenant.", timer:10 },
+    ]
+  },
+];
+
+function CriseExerciseView({ exercise, onBack }) {
+  const [step, setStep] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(exercise.steps[0].timer);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!running) return;
+    if (timeLeft <= 0) {
+      if (step < exercise.steps.length - 1) {
+        const next = step + 1;
+        setStep(next);
+        setTimeLeft(exercise.steps[next].timer);
+      } else {
+        setRunning(false);
+        setDone(true);
+      }
+      return;
+    }
+    const t = setTimeout(() => setTimeLeft(v => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [running, timeLeft, step]);
+
+  const current = exercise.steps[step];
+  const progress = ((step) / exercise.steps.length) * 100 + ((1 - timeLeft / current.timer) / exercise.steps.length) * 100;
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={onBack} label="← Exercices"/>
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <span style={{fontSize:32}}>{exercise.emoji}</span>
+        <h2 style={{...s.screenTitle,fontSize:18,margin:"6px 0 2px"}}>{exercise.title}</h2>
+      </div>
+
+      <div style={{height:3,background:"rgba(196,164,224,0.1)",borderRadius:2,overflow:"hidden",marginBottom:20}}>
+        <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${exercise.color},#C4A4E0)`,borderRadius:2,transition:"width 0.5s"}}/>
+      </div>
+
+      {!done ? (
+        <>
+          <div style={{...s.mysticalCard,minHeight:120,justifyContent:"center",alignItems:"center",textAlign:"center",marginBottom:16}}>
+            <p style={{color:"rgba(232,213,245,0.9)",fontSize:15,lineHeight:1.7,fontStyle:"italic",margin:0}}>{current.text}</p>
+          </div>
+
+          {running && (
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <span style={{color:exercise.color,fontSize:32,fontWeight:"bold"}}>{timeLeft}</span>
+              <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:"2px 0 0",letterSpacing:1}}>secondes</p>
+            </div>
+          )}
+
+          {!running ? (
+            <button style={{...s.validateBtn,width:"100%"}} onClick={()=>setRunning(true)}>
+              {step===0?"Commencer":"Continuer"}
+            </button>
+          ) : (
+            <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={()=>setRunning(false)}>Pause</button>
+          )}
+        </>
+      ) : (
+        <div style={{textAlign:"center",paddingTop:16}}>
+          <div style={{fontSize:40,marginBottom:12}}>✨</div>
+          <p style={{color:"rgba(232,213,245,0.9)",fontSize:16,fontStyle:"italic",lineHeight:1.7,marginBottom:20}}>
+            Tu as traversé cet exercice. C'est déjà beaucoup.
+          </p>
+          <button style={{...s.validateBtn,width:"100%",marginBottom:10}} onClick={()=>{setStep(0);setTimeLeft(exercise.steps[0].timer);setRunning(false);setDone(false);}}>
+            Recommencer
+          </button>
+          <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={onBack}>← Retour aux exercices</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CriseGuidedView({ onBack }) {
+  const guided = [criseExercises[0], criseExercises[1], criseExercises[2]];
+  const [phase, setPhase] = useState(0);
+  const [exDone, setExDone] = useState(false);
+
+  if (exDone && phase < guided.length - 1) {
+    return (
+      <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+        <span style={{fontSize:36}}>✓</span>
+        <p style={{color:"rgba(232,213,245,0.9)",fontSize:15,fontStyle:"italic",lineHeight:1.7,margin:"16px 0 24px"}}>
+          Bien. Tu avances. L'étape suivante va t'aider à te reconnecter à toi-même.
+        </p>
+        <button style={{...s.validateBtn,width:"100%"}} onClick={()=>{setPhase(p=>p+1);setExDone(false);}}>
+          Continuer →
+        </button>
+      </div>
+    );
+  }
+
+  if (exDone && phase === guided.length - 1) {
+    return (
+      <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+        <span style={{fontSize:40}}>🌟</span>
+        <p style={{color:"rgba(232,213,245,0.9)",fontSize:16,fontStyle:"italic",lineHeight:1.7,margin:"16px 0 8px"}}>
+          Tu as traversé ce moment difficile.
+        </p>
+        <p style={{color:"rgba(196,164,224,0.55)",fontSize:13,lineHeight:1.6,margin:"0 0 24px",fontStyle:"italic"}}>
+          Prends le temps de te féliciter — c'était courageux.
+        </p>
+        <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={onBack}>← Retour</button>
+      </div>
+    );
+  }
+
+  return <CriseExerciseView exercise={guided[phase]} onBack={()=>{ if(phase===0) onBack(); else {setPhase(p=>p-1);setExDone(false);} }} onDone={()=>setExDone(true)}/>;
+}
+
+function CriseScreen({ goBack }) {
+  const [view, setView] = useState("home"); // home | guided | pick | exercise:id
+  const [activeEx, setActiveEx] = useState(null);
+
+  if (view==="exercise" && activeEx) {
+    return <CriseExerciseView exercise={activeEx} onBack={()=>setView("pick")}/>;
+  }
+  if (view==="guided") {
+    return <CriseGuidedView onBack={()=>setView("home")}/>;
+  }
+  if (view==="pick") {
+    return (
+      <div style={s.screen}>
+        <BackBtn goBack={()=>setView("home")} label="← Retour"/>
+        <h2 style={s.screenTitle}>Je choisis</h2>
+        <p style={s.screenSub}>Quel exercice te parle en ce moment ?</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {criseExercises.map(ex=>(
+            <button key={ex.id} onClick={()=>{setActiveEx(ex);setView("exercise");}} style={{background:"rgba(155,111,212,0.05)",border:`1px solid ${ex.color}30`,borderRadius:14,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",textAlign:"left"}}>
+              <span style={{fontSize:24,flexShrink:0}}>{ex.emoji}</span>
+              <div>
+                <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontFamily:"Georgia,serif"}}>{ex.title}</p>
+                <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:0,letterSpacing:0.5}}>{ex.duration}</p>
+              </div>
+              <span style={{color:ex.color,marginLeft:"auto",fontSize:16}}>→</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <div style={{textAlign:"center",padding:"10px 0 20px"}}>
+        <span style={{fontSize:36}}>🫂</span>
+        <h2 style={{...s.screenTitle,marginTop:8}}>Mode Crise</h2>
+        <p style={{color:"rgba(196,164,224,0.55)",fontSize:13,lineHeight:1.6,fontStyle:"italic",margin:"4px 0 0"}}>
+          Tu n'es pas seule. On est là.
+        </p>
+      </div>
+      <Divider/>
+      <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:16}}>
+        <button onClick={()=>setView("guided")} style={{...s.mysticalCard,cursor:"pointer",textAlign:"left",border:"1px solid rgba(155,111,212,0.3)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+            <span style={{fontSize:24}}>⚡</span>
+            <p style={{color:"rgba(232,213,245,0.95)",fontSize:15,fontFamily:"Georgia,serif",fontStyle:"italic",margin:0}}>Aide-moi maintenant</p>
+          </div>
+          <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,lineHeight:1.5,margin:0}}>Je te guide étape par étape — respiration, ancrage, réconfort. Tu n'as rien à choisir.</p>
+        </button>
+        <button onClick={()=>setView("pick")} style={{...s.mysticalCard,cursor:"pointer",textAlign:"left",border:"1px solid rgba(196,164,224,0.2)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+            <span style={{fontSize:24}}>🌿</span>
+            <p style={{color:"rgba(232,213,245,0.95)",fontSize:15,fontFamily:"Georgia,serif",fontStyle:"italic",margin:0}}>Je choisis mon exercice</p>
+          </div>
+          <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,lineHeight:1.5,margin:0}}>Respiration, ancrage, réconfort, colère, corps — choisis ce dont tu as besoin.</p>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── STATS SCREEN ─────────────────────────────────────────────────────────────
+function StatsScreen({ completedDays, goBack }) {
+  const totalDone = Object.keys(completedDays).length;
+  const programStats = programs.map((p, i) => {
+    const total = p.duration;
+    const done = Object.keys(completedDays).filter(k => k.startsWith(`${i}-`)).length;
+    return { ...p, done, total, pct: Math.round((done / total) * 100) };
+  });
+  const started = programStats.filter(p => p.done > 0);
+  const streak = Math.min(totalDone, 7);
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Mes statistiques</h2>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
+        {[
+          { label:"Jours complétés", value:totalDone, color:"#9B6FD4" },
+          { label:"Parcours commencés", value:started.length, color:"#C4A4E0" },
+          { label:"Jours d'affilée", value:streak, color:"#D4AF7A" },
+        ].map(({label,value,color})=>(
+          <div key={label} style={{background:"rgba(155,111,212,0.05)",border:"1px solid rgba(196,164,224,0.12)",borderRadius:14,padding:"14px 8px",textAlign:"center"}}>
+            <p style={{color,fontSize:28,fontWeight:"bold",margin:"0 0 4px",lineHeight:1}}>{value}</p>
+            <p style={{color:"rgba(196,164,224,0.45)",fontSize:9,margin:0,letterSpacing:0.5,lineHeight:1.4}}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <SectionLabel color="#C4A4E0">Progression par parcours</SectionLabel>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
+        {programStats.map((p,i)=>(
+          <div key={i} style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:12,padding:"12px 14px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <p style={{color:"rgba(232,213,245,0.85)",fontSize:12,margin:0,fontStyle:"italic"}}>{p.emoji} {p.theme}</p>
+              <span style={{color:"rgba(196,164,224,0.5)",fontSize:10}}>{p.done}/{p.total}j</span>
+            </div>
+            <div style={{height:4,background:"rgba(196,164,224,0.08)",borderRadius:2,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${p.pct}%`,background:"linear-gradient(90deg,#9B6FD4,#D4AF7A)",borderRadius:2,transition:"width 0.5s"}}/>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── MEDITATIONS SCREEN ───────────────────────────────────────────────────────
+// ─── MÉDITATIONS LIBRES SCREEN ────────────────────────────────────────────────
+function MeditationsLibresScreen({ goBack, isPremium, onGoPremium }) {
+  const [active, setActive] = useState(null);
+  const [done, setDone] = useState(false);
+
+  const getAudioUrl = (id) => `${SUPABASE_STORAGE_URL}/meditation${id}.mp3`;
+
+  if (active) {
+    return (
+      <div style={s.screen}>
+        <BackBtn goBack={()=>{ setActive(null); setDone(false); }} label="← Méditations"/>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <span style={{fontSize:36}}>{active.emoji}</span>
+          <h2 style={{...s.screenTitle,fontSize:18,margin:"8px 0 2px"}}>{active.titre}</h2>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:11,margin:"0 0 4px",letterSpacing:0.5,fontStyle:"italic"}}>{active.theme}</p>
+          <span style={{color:"rgba(196,164,224,0.4)",fontSize:11}}>⏱ {active.duree}</span>
+        </div>
+        <Divider/>
+        <div style={{...s.mysticalCard,marginTop:14,marginBottom:14}}>
+          <SectionLabel color={active.color}>Intention</SectionLabel>
+          <p style={{color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,fontStyle:"italic",margin:0}}>{active.desc}</p>
+        </div>
+        <AudioPlayer url={getAudioUrl(active.id)} color={active.color} onEnded={()=>setDone(true)}/>
+        {done && (
+          <div style={{textAlign:"center",marginTop:16}}>
+            <p style={{color:"#A8C5A0",fontSize:13,fontStyle:"italic",lineHeight:1.6,margin:0}}>
+              ✨ Méditation terminée. Prends un instant avant de reprendre ta journée.
+            </p>
+          </div>
+        )}
+        <div style={{...s.mysticalCard,marginTop:14,background:"rgba(212,175,122,0.03)",border:"1px solid rgba(212,175,122,0.1)"}}>
+          <p style={{color:"rgba(212,175,122,0.5)",fontSize:10,lineHeight:1.6,margin:0,textAlign:"center",fontStyle:"italic"}}>
+            Pour une meilleure expérience, mets ton téléphone en mode silencieux et installe-toi confortablement.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <div style={{textAlign:"center",marginBottom:6}}>
+        <span style={{fontSize:28}}>🎙️</span>
+        <h2 style={{...s.screenTitle,marginTop:6}}>Méditations guidées</h2>
+        <p style={s.screenSub}>Des séances audio pour t'ancrer, te libérer et t'aimer.</p>
+      </div>
+      <Divider/>
+
+      <SectionLabel color="#9B6FD4">Disponibles maintenant</SectionLabel>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:10,marginBottom:20}}>
+        {meditationsLibres.map(med=>(
+          <button key={med.id} onClick={()=>setActive(med)} style={{background:"rgba(155,111,212,0.04)",border:`1px solid ${med.color}25`,borderRadius:14,padding:"14px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",textAlign:"left"}}>
+            <div style={{width:44,height:44,borderRadius:12,background:`${med.color}15`,border:`1px solid ${med.color}30`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <span style={{fontSize:22}}>{med.emoji}</span>
+            </div>
+            <div style={{flex:1}}>
+              <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 3px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{med.titre}</p>
+              <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:"0 0 2px",letterSpacing:0.3}}>{med.theme}</p>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{color:"rgba(196,164,224,0.35)",fontSize:10}}>⏱ {med.duree}</span>
+                <span style={{background:"rgba(168,197,160,0.15)",color:"#A8C5A0",fontSize:9,padding:"2px 6px",borderRadius:4,letterSpacing:0.5}}>GRATUIT</span>
+              </div>
+            </div>
+            <span style={{color:`${med.color}60`,fontSize:16,flexShrink:0}}>▶</span>
+          </button>
+        ))}
+      </div>
+
+      {!isPremium && (
+        <>
+          <SectionLabel color="#D4AF7A">Prochainement — Premium</SectionLabel>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:10}}>
+            {[
+              { emoji:"🌊", titre:"Traverser l'anxiété", theme:"Apaisement & régulation" },
+              { emoji:"🌙", titre:"Méditation du sommeil", theme:"Lâcher-prise & repos" },
+              { emoji:"🔥", titre:"Retrouver son élan", theme:"Motivation & énergie" },
+            ].map((m,i)=>(
+              <div key={i} style={{background:"rgba(155,111,212,0.02)",border:"1px solid rgba(196,164,224,0.08)",borderRadius:14,padding:"14px",display:"flex",alignItems:"center",gap:14,opacity:0.6}}>
+                <div style={{width:44,height:44,borderRadius:12,background:"rgba(196,164,224,0.05)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:22}}>{m.emoji}</span>
+                </div>
+                <div style={{flex:1}}>
+                  <p style={{color:"rgba(232,213,245,0.7)",fontSize:13,margin:"0 0 3px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{m.titre}</p>
+                  <p style={{color:"rgba(196,164,224,0.35)",fontSize:10,margin:0}}>{m.theme}</p>
+                </div>
+                <span style={{color:"rgba(212,175,122,0.4)",fontSize:11,letterSpacing:0.5}}>🔒</span>
+              </div>
+            ))}
+          </div>
+          <button style={{...s.validateBtn,width:"100%",marginTop:14}} onClick={onGoPremium}>
+            Débloquer toutes les méditations →
+          </button>
+        </>
+      )}
+
+      {isPremium && (
+        <div style={{...s.mysticalCard,background:"rgba(168,197,160,0.05)",border:"1px solid rgba(168,197,160,0.15)",textAlign:"center"}}>
+          <p style={{color:"#A8C5A0",fontSize:12,lineHeight:1.6,margin:0,fontStyle:"italic"}}>
+            ✨ De nouvelles méditations sont ajoutées chaque mois dans ton espace Premium.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MÉDITATIONS SCREEN (parcours) ────────────────────────────────────────────
+// ─── MÉDITATIONS LIBRES (gratuites) ──────────────────────────────────────────
+const meditationsLibres = [
+  {
+    id:1, titre:"Le refuge intérieur", theme:"Sécurité & ancrage", duree:"10 min", emoji:"🏡", color:"#9B6FD4",
+    desc:"Visualise un lieu intérieur de paix absolue où rien ne peut t'atteindre. Une ancre douce pour revenir à toi-même à tout moment.",
+    gratuite:true
+  },
+  {
+    id:2, titre:"La bienveillance envers soi", theme:"Self-compassion", duree:"12 min", emoji:"💜", color:"#C4A4E0",
+    desc:"Apprends à t'offrir la même douceur que tu offres spontanément aux personnes que tu aimes. Une pratique de metta tournée vers toi.",
+    gratuite:true
+  },
+  {
+    id:3, titre:"Lâcher le passé", theme:"Pardon & libération", duree:"15 min", emoji:"🕊️", color:"#D4AF7A",
+    desc:"Dépose ce que tu portes encore — regrets, rancœurs, attachements. Non pour oublier, mais pour avancer un peu plus légère.",
+    gratuite:true
+  },
+  {
+    id:4, titre:"Le corps comme allié", theme:"Réconciliation corporelle", duree:"10 min", emoji:"🌿", color:"#A8C5A0",
+    desc:"Reconnecte-toi à ton corps non pas comme un projet à améliorer, mais comme un partenaire fidèle qui t'accompagne depuis toujours.",
+    gratuite:true
+  },
+  {
+    id:5, titre:"L'enfant intérieur", theme:"Guérison des blessures profondes", duree:"15 min", emoji:"🌸", color:"#E4A8C4",
+    desc:"Rencontre et apaise la part de toi qui a été blessée, effrayée ou ignorée. Une méditation douce et puissante de guérison intérieure.",
+    gratuite:true
+  },
+  {
+    id:6, titre:"La confiance en soi", theme:"Estime de soi & ancrage", duree:"10 min", emoji:"⭐", color:"#D4AF7A",
+    desc:"Reconnecte-toi à une force stable en toi, qui existait avant le doute. Une pratique pour retrouver ton ancrage intérieur.",
+    gratuite:true
+  },
+];
+
+const SUPABASE_STORAGE_URL = "https://fhxluzfirwtwgttegdii.supabase.co/storage/v1/object/public/Meditations";
+
+function AudioPlayer({ url, color, onEnded }) {
+  const audioRef = React.useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onLoaded = () => { setDuration(audio.duration); setLoading(false); };
+    const onTime = () => setCurrentTime(audio.currentTime);
+    const onEnd = () => { setPlaying(false); setCurrentTime(0); if (onEnded) onEnded(); };
+    const onError = () => { setError(true); setLoading(false); };
+    audio.addEventListener("loadedmetadata", onLoaded);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("ended", onEnd);
+    audio.addEventListener("error", onError);
+    return () => {
+      audio.removeEventListener("loadedmetadata", onLoaded);
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("ended", onEnd);
+      audio.removeEventListener("error", onError);
+      audio.pause();
+    };
+  }, [url]);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) { audio.pause(); setPlaying(false); }
+    else { audio.play(); setPlaying(true); }
+  };
+
+  const seek = (e) => {
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = ratio * duration;
+  };
+
+  const fmt = (s) => {
+    if (!s || isNaN(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const progress = duration ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div style={{background:"rgba(155,111,212,0.06)",border:`1px solid ${color}30`,borderRadius:16,padding:"16px"}}>
+      <audio ref={audioRef} src={url} preload="metadata"/>
+      {error ? (
+        <p style={{color:"rgba(232,155,155,0.7)",fontSize:12,textAlign:"center",fontStyle:"italic",margin:0}}>
+          Audio non disponible pour le moment.
+        </p>
+      ) : (
+        <>
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
+            <button
+              onClick={togglePlay}
+              disabled={loading}
+              style={{width:48,height:48,borderRadius:"50%",background:loading?`rgba(155,111,212,0.2)`:`linear-gradient(135deg,${color},#C4A4E0)`,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:loading?"default":"pointer",flexShrink:0,fontSize:18,transition:"all 0.2s"}}
+            >
+              {loading ? "⋯" : playing ? "⏸" : "▶"}
+            </button>
+            <div style={{flex:1}}>
+              <div
+                onClick={seek}
+                style={{height:4,background:"rgba(196,164,224,0.15)",borderRadius:2,overflow:"hidden",cursor:"pointer",marginBottom:6}}
+              >
+                <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${color},#C4A4E0)`,borderRadius:2,transition:"width 0.3s"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{color:"rgba(196,164,224,0.45)",fontSize:10}}>{fmt(currentTime)}</span>
+                <span style={{color:"rgba(196,164,224,0.45)",fontSize:10}}>{fmt(duration)}</span>
+              </div>
+            </div>
+          </div>
+          {!loading && !playing && currentTime === 0 && (
+            <p style={{color:"rgba(196,164,224,0.35)",fontSize:10,textAlign:"center",margin:0,fontStyle:"italic"}}>
+              Appuie sur ▶ pour commencer la méditation
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function MeditationsScreen({ goBack }) {
+  const [active, setActive] = useState(null);
+  const [available, setAvailable] = useState({});
+  const [done, setDone] = useState(false);
+
+  const getAudioUrl = (pi, mi) =>
+    `${SUPABASE_STORAGE_URL}/parcours${pi + 1}-meditation${mi + 1}.mp3`;
+
+  // Check which files exist by doing a HEAD request on each
+  useEffect(() => {
+    const checks = {};
+    const promises = programs.flatMap((p, pi) =>
+      p.pools.meditation.map((m, mi) => {
+        const key = `${pi}-${mi}`;
+        return fetch(getAudioUrl(pi, mi), { method: "HEAD" })
+          .then(r => { checks[key] = r.ok; })
+          .catch(() => { checks[key] = false; });
+      })
+    );
+    Promise.all(promises).then(() => setAvailable({ ...checks }));
+  }, []);
+
+  if (active) {
+    const audioUrl = getAudioUrl(active.pi, active.mi);
+    return (
+      <div style={s.screen}>
+        <BackBtn goBack={()=>{ setActive(null); setDone(false); }} label="← Méditations"/>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <span style={{fontSize:32}}>{active.emoji}</span>
+          <h2 style={{...s.screenTitle,fontSize:17,margin:"8px 0 2px"}}>{active.titre}</h2>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:11,margin:"0 0 4px",letterSpacing:0.5}}>{active.program}</p>
+          <span style={{color:"rgba(196,164,224,0.4)",fontSize:11}}>⏱ {active.durée}</span>
+        </div>
+        <Divider/>
+        <div style={{...s.mysticalCard,marginTop:14,marginBottom:14}}>
+          <SectionLabel color="#9B6FD4">Intention</SectionLabel>
+          <p style={{color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,fontStyle:"italic",margin:0}}>{active.desc}</p>
+        </div>
+        <AudioPlayer url={audioUrl} color={active.color} onEnded={()=>setDone(true)}/>
+        {done && (
+          <div style={{textAlign:"center",marginTop:16}}>
+            <p style={{color:"#A8C5A0",fontSize:13,fontStyle:"italic",lineHeight:1.6,margin:"0 0 12px"}}>
+              ✨ Méditation terminée. Prends un instant avant de reprendre ta journée.
+            </p>
+          </div>
+        )}
+        <div style={{...s.mysticalCard,marginTop:14,background:"rgba(212,175,122,0.03)",border:"1px solid rgba(212,175,122,0.1)"}}>
+          <p style={{color:"rgba(212,175,122,0.5)",fontSize:10,lineHeight:1.6,margin:0,textAlign:"center",fontStyle:"italic"}}>
+            Pour une meilleure expérience, mets ton téléphone en mode silencieux et installe-toi confortablement.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Méditations guidées</h2>
+      <p style={s.screenSub}>32 méditations · 8 parcours</p>
+      {programs.map((p, pi) => (
+        <div key={pi} style={{marginBottom:18}}>
+          <SectionLabel color={p.color}>{p.emoji} {p.theme}</SectionLabel>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:10}}>
+            {p.pools.meditation.map((m, mi) => {
+              const key = `${pi}-${mi}`;
+              const isAvailable = available[key] !== false;
+              const isChecked = key in available;
+              return (
+                <button key={mi}
+                  onClick={()=>{ if(isAvailable) setActive({...m,program:p.theme,emoji:p.emoji,color:p.color,pi,mi}); }}
+                  style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,cursor:isAvailable?"pointer":"default",textAlign:"left",opacity:isChecked&&!isAvailable?0.45:1}}
+                >
+                  <span style={{fontSize:20,flexShrink:0}}>
+                    {!isChecked?"⋯":isAvailable?"🎙️":"🔒"}
+                  </span>
+                  <div style={{flex:1}}>
+                    <p style={{color:"rgba(232,213,245,0.9)",fontSize:12,margin:"0 0 2px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{m.titre}</p>
+                    <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:0,letterSpacing:0.5}}>
+                      {m.durée}{isChecked&&!isAvailable?" · Bientôt disponible":""}
+                    </p>
+                  </div>
+                  {isAvailable && <span style={{color:"rgba(196,164,224,0.3)",fontSize:14}}>›</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BibliothequeScreen({ goBack }) {
+  const [tab, setTab] = useState("lire");
+  const [activeItem, setActiveItem] = useState(null);
+
+  if (activeItem && tab==="lire") return (
+    <div style={s.screen}>
+      <BackBtn goBack={()=>setActiveItem(null)} label="← Bibliothèque"/>
+      <div style={{marginBottom:16}}>
+        <h2 style={{...s.screenTitle,fontSize:18}}>{activeItem.titre}</h2>
+        <p style={{color:"rgba(196,164,224,0.45)",fontSize:11,margin:"0 0 16px",letterSpacing:0.5}}>{activeItem.auteur}</p>
+      </div>
+      <Divider/>
+      <div style={{...s.mysticalCard,marginTop:16}}>
+        <p style={{color:"rgba(232,213,245,0.9)",fontSize:14,lineHeight:1.8,fontStyle:"italic",margin:0}}>« {activeItem.extrait} »</p>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:14}}>
+        {activeItem.tags.map(tag=>(
+          <span key={tag} style={{background:"rgba(155,111,212,0.1)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:8,padding:"4px 10px",color:"rgba(196,164,224,0.6)",fontSize:10,letterSpacing:0.5}}>#{tag}</span>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Bibliothèque</h2>
+      <div style={{display:"flex",borderBottom:"1px solid rgba(196,164,224,0.1)",marginBottom:18}}>
+        {[["lire","📖 Lire"],["ecouter","🎧 Écouter"],["regarder","🎬 Regarder"]].map(([k,l])=>(
+          <button key={k} onClick={()=>{setTab(k);setActiveItem(null);}} style={{flex:1,background:"transparent",border:"none",padding:"9px 0",fontSize:10,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:0.5,color:tab===k?"#C4A4E0":"rgba(196,164,224,0.35)",borderBottom:tab===k?"1px solid #9B6FD4":"1px solid transparent"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {tab==="lire" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {bibliotheque.lire.map((item,i)=>(
+            <button key={i} onClick={()=>setActiveItem(item)} style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px",display:"flex",flexDirection:"column",gap:4,cursor:"pointer",textAlign:"left"}}>
+              <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:0,fontFamily:"Georgia,serif",fontStyle:"italic"}}>{item.titre}</p>
+              <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:0,letterSpacing:0.3}}>{item.auteur}</p>
+              <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,margin:"4px 0 0",lineHeight:1.5}}>« {item.extrait.slice(0,80)}… »</p>
+            </button>
+          ))}
+        </div>
+      )}
+      {tab==="ecouter" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {bibliotheque.ecouter.map((item,i)=>(
+            <a key={i} href={item.lien} target="_blank" rel="noopener noreferrer" style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px",display:"flex",gap:12,alignItems:"flex-start",textDecoration:"none"}}>
+              <span style={{fontSize:22,flexShrink:0}}>🎧</span>
+              <div style={{flex:1}}>
+                <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{item.titre}</p>
+                <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:"0 0 6px",letterSpacing:0.3}}>{item.auteur} · {item.plateforme}</p>
+                <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,margin:0,lineHeight:1.5}}>{item.desc}</p>
+              </div>
+              <span style={{color:"rgba(196,164,224,0.3)",fontSize:14,flexShrink:0}}>↗</span>
+            </a>
+          ))}
+        </div>
+      )}
+      {tab==="regarder" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {bibliotheque.regarder.map((item,i)=>(
+            <a key={i} href={item.lien} target="_blank" rel="noopener noreferrer" style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px",display:"flex",gap:12,alignItems:"flex-start",textDecoration:"none"}}>
+              <span style={{fontSize:22,flexShrink:0}}>🎬</span>
+              <div style={{flex:1}}>
+                <p style={{color:"rgba(232,213,245,0.9)",fontSize:13,margin:"0 0 2px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{item.titre}</p>
+                <p style={{color:"rgba(196,164,224,0.45)",fontSize:10,margin:"0 0 6px",letterSpacing:0.3}}>{item.auteur} · {item.duree}</p>
+                <p style={{color:"rgba(196,164,224,0.55)",fontSize:11,margin:0,lineHeight:1.5}}>{item.desc}</p>
+              </div>
+              <span style={{color:"rgba(196,164,224,0.3)",fontSize:14,flexShrink:0}}>↗</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── THÈMES SCREEN ────────────────────────────────────────────────────────────
+function ThemesScreen({ goBack, themeId, setThemeId }) {
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Thèmes</h2>
+      <p style={s.screenSub}>Choisis l'ambiance qui te ressemble.</p>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {Object.values(themes).map(th=>{
+          const active = th.id===themeId;
+          return (
+            <button key={th.id} onClick={()=>setThemeId(th.id)} style={{background:active?th.card:"rgba(155,111,212,0.03)",border:`1px solid ${active?th.primary:th.border}`,borderRadius:16,padding:"16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",textAlign:"left",transition:"all 0.2s"}}>
+              <div style={{width:44,height:44,borderRadius:12,background:th.phoneBg,border:`2px solid ${th.primary}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{fontSize:20}}>{th.emoji}</span>
+              </div>
+              <div style={{flex:1}}>
+                <p style={{color:active?th.text:"rgba(232,213,245,0.8)",fontSize:14,margin:"0 0 6px",fontFamily:"Georgia,serif",fontStyle:"italic"}}>{th.name}</p>
+                <div style={{display:"flex",gap:6}}>
+                  {[th.primary,th.light,th.gold,th.green].map((c,i)=>(
+                    <div key={i} style={{width:14,height:14,borderRadius:"50%",background:c}}/>
+                  ))}
+                </div>
+              </div>
+              {active && <span style={{color:th.primary,fontSize:18,flexShrink:0}}>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p style={{color:"rgba(196,164,224,0.3)",fontSize:10,textAlign:"center",margin:"20px 0 0",fontStyle:"italic",lineHeight:1.6}}>
+        Le thème s'applique immédiatement à toute l'application.
+      </p>
+    </div>
+  );
+}
+
+// ─── FAVORIS SCREEN ───────────────────────────────────────────────────────────
+function FavoritesScreen({ goBack, favorites }) {
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Mes affirmations favorites</h2>
+      <p style={s.screenSub}>{favorites.length} affirmation{favorites.length!==1?"s":""} sauvegardée{favorites.length!==1?"s":""}</p>
+      {favorites.length === 0 ? (
+        <div style={{textAlign:"center",padding:"32px 0"}}>
+          <span style={{fontSize:36}}>💜</span>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>
+            Aucune affirmation favorite pour l'instant.<br/>Appuie sur 🤍 sur l'accueil pour en sauvegarder.
+          </p>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {favorites.map(fav=>(
+            <div key={fav.id} style={{...s.affCard,padding:"16px"}}>
+              <CornerDecor pos="tl"/><CornerDecor pos="tr"/>
+              <p style={{...s.affText,fontSize:14,margin:0}}>"{fav.affirmation}"</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── HISTORIQUE JOURNAL SCREEN ────────────────────────────────────────────────
+function HistoriqueScreen({ goBack, entries }) {
+  const formatDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Mon espace"/>
+      <h2 style={s.screenTitle}>Historique du journal</h2>
+      <p style={s.screenSub}>{entries.length} entrée{entries.length!==1?"s":""}</p>
+      {entries.length === 0 ? (
+        <div style={{textAlign:"center",padding:"32px 0"}}>
+          <span style={{fontSize:36}}>📝</span>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>
+            Ton journal est vide pour l'instant.<br/>Commence à écrire pour retrouver tes entrées ici.
+          </p>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {entries.map(entry=>(
+            <div key={entry.id} style={s.mysticalCard}>
+              <p style={{color:"rgba(212,175,122,0.6)",fontSize:10,margin:"0 0 6px",letterSpacing:0.5}}>{formatDate(entry.created_at)}</p>
+              {entry.prompt && <p style={{color:"rgba(196,164,224,0.5)",fontSize:11,fontStyle:"italic",margin:"0 0 8px",lineHeight:1.5}}>« {entry.prompt} »</p>}
+              <p style={{color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,margin:0}}>{entry.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── RITUEL MATIN / SOIR ──────────────────────────────────────────────────────
+const rituals = {
+  matin: {
+    label:"Rituel du matin", emoji:"🌅", color:"#D4AF7A",
+    steps:[
+      { type:"breath", title:"Respiration d'éveil", text:"Prends trois grandes respirations. À chaque expiration, imagine que tu libères les tensions de la nuit.", timer:20 },
+      { type:"intention", title:"Intention du jour", text:"Pose-toi cette question : quelle qualité veux-tu incarner aujourd'hui ? Douceur, courage, patience, joie... Choisis une seule chose.", timer:20 },
+      { type:"affirmation", title:"Affirmation du matin", text:"Répète intérieurement, trois fois : « Je mérite cette journée. Je suis capable de traverser ce qui se présente. »", timer:20 },
+      { type:"gratitude", title:"Une gratitude", text:"Nomme une chose — même petite — pour laquelle tu es reconnaissante ce matin. Laisse-la te remplir un instant.", timer:20 },
+    ]
+  },
+  pause: {
+    label:"Pause du milieu de journée", emoji:"☀️", color:"#C4A4E0",
+    steps:[
+      { type:"breath", title:"Respiration ancrante", text:"Pose tes pieds à plat sur le sol. Prends cinq respirations profondes, en sentant ton corps bien ancré.", timer:20 },
+      { type:"scan", title:"Comment tu te sens ?", text:"Sans jugement, observe ton état : physique, émotionnel, mental. Tu n'as rien à changer — juste à remarquer.", timer:20 },
+      { type:"recharge", title:"Une phrase pour la suite", text:"Choisis une phrase pour t'accompagner pour la fin de journée : « Je fais de mon mieux, et c'est assez. »", timer:20 },
+    ]
+  },
+  soir: {
+    label:"Rituel du soir", emoji:"🌙", color:"#9B6FD4",
+    steps:[
+      { type:"release", title:"Déposer la journée", text:"Ferme les yeux. Prends une grande inspiration, et à l'expiration, imagine que tu déposes tout ce que tu as porté aujourd'hui.", timer:20 },
+      { type:"gratitude", title:"Trois gratitudes", text:"Nomme trois choses de la journée pour lesquelles tu peux ressentir de la gratitude — même les plus petites.", timer:25 },
+      { type:"compassion", title:"Un moment de douceur", text:"Y a-t-il un moment de la journée où tu as été dure avec toi-même ? Dis-toi maintenant : « J'ai fait de mon mieux avec ce que j'avais. »", timer:20 },
+      { type:"intention", title:"Intention pour demain", text:"En une phrase, pose une intention douce pour demain. Pas une obligation — juste une direction.", timer:20 },
+      { type:"relax", title:"Relâchement", text:"De la tête aux pieds, laisse chaque partie de ton corps se détendre. Tu peux t'endormir ainsi, si tu le souhaites.", timer:30 },
+    ]
+  }
+};
+
+function RitualScreen({ goBack, isPremium, onGoPremium }) {
+  const hour = new Date().getHours();
+  const ritualKey = hour < 12 ? "matin" : hour < 18 ? "pause" : "soir";
+  const ritual = rituals[ritualKey];
+
+  const [step, setStep] = useState(-1); // -1 = intro
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!running || timeLeft <= 0) return;
+    const t = setTimeout(() => setTimeLeft(v => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [running, timeLeft]);
+
+  useEffect(() => {
+    if (running && timeLeft === 0) {
+      setRunning(false);
+      if (step < ritual.steps.length - 1) { setTimeout(() => { setStep(s => s + 1); setTimeLeft(ritual.steps[step+1].timer); }, 800); }
+      else setDone(true);
+    }
+  }, [timeLeft, running]);
+
+  if (!isPremium) return (
+    <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <span style={{fontSize:40}}>🌙</span>
+      <h2 style={{...s.screenTitle,marginTop:12}}>Rituel guidé</h2>
+      <p style={{color:"rgba(196,164,224,0.55)",fontSize:13,lineHeight:1.7,fontStyle:"italic",margin:"12px 0 24px"}}>Les rituels matin et soir sont réservés aux membres Premium.</p>
+      <button style={{...s.validateBtn,width:"100%"}} onClick={onGoPremium}>Découvrir Premium →</button>
+    </div>
+  );
+
+  if (done) return (
+    <div style={{...s.screen,textAlign:"center",paddingTop:32}}>
+      <span style={{fontSize:40}}>{ritual.emoji}</span>
+      <h2 style={{...s.screenTitle,marginTop:12}}>Rituel terminé</h2>
+      <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,fontStyle:"italic",lineHeight:1.7,margin:"12px 0 24px"}}>Prends un instant pour remarquer comment tu te sens, avant de reprendre ta journée.</p>
+      <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={goBack}>← Retour à l'accueil</button>
+    </div>
+  );
+
+  if (step === -1) return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <div style={{textAlign:"center",marginBottom:20}}>
+        <span style={{fontSize:36}}>{ritual.emoji}</span>
+        <h2 style={{...s.screenTitle,marginTop:8}}>{ritual.label}</h2>
+        <p style={{color:"rgba(196,164,224,0.5)",fontSize:12,margin:"6px 0 0"}}>{ritual.steps.length} étapes · environ {Math.round(ritual.steps.reduce((a,s)=>a+s.timer,0)/60)} minutes</p>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+        {ritual.steps.map((st,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:12}}>
+            <span style={{color:ritual.color,fontSize:13,fontWeight:"bold",minWidth:18}}>{i+1}</span>
+            <p style={{color:"rgba(232,213,245,0.8)",fontSize:12,margin:0,fontStyle:"italic"}}>{st.title}</p>
+          </div>
+        ))}
+      </div>
+      <button style={{...s.validateBtn,width:"100%"}} onClick={()=>{setStep(0);setTimeLeft(ritual.steps[0].timer);}}>Commencer →</button>
+    </div>
+  );
+
+  const current = ritual.steps[step];
+  const progress = ((step + (1 - timeLeft/current.timer)) / ritual.steps.length) * 100;
+
+  return (
+    <div style={s.screen}>
+      <div style={{height:3,background:"rgba(196,164,224,0.08)",borderRadius:2,overflow:"hidden",marginBottom:20}}>
+        <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${ritual.color},#C4A4E0)`,borderRadius:2,transition:"width 0.5s"}}/>
+      </div>
+      <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,letterSpacing:1,marginBottom:6}}>ÉTAPE {step+1} / {ritual.steps.length}</p>
+      <h3 style={{color:"rgba(232,213,245,0.9)",fontSize:16,fontStyle:"italic",marginBottom:16,fontFamily:"Georgia,serif"}}>{current.title}</h3>
+      <div style={{...s.mysticalCard,minHeight:120,marginBottom:20}}>
+        <p style={{color:"rgba(232,213,245,0.85)",fontSize:14,lineHeight:1.8,fontStyle:"italic",margin:0}}>{current.text}</p>
+      </div>
+      {running && (
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <span style={{color:ritual.color,fontSize:32,fontWeight:"bold"}}>{timeLeft}</span>
+          <p style={{color:"rgba(196,164,224,0.4)",fontSize:10,margin:"2px 0 0",letterSpacing:1}}>secondes</p>
+        </div>
+      )}
+      {!running
+        ? <button style={{...s.validateBtn,width:"100%"}} onClick={()=>setRunning(true)}>Commencer cette étape</button>
+        : <button style={{...s.ghostBtn,width:"100%",textAlign:"center"}} onClick={()=>setRunning(false)}>Pause</button>
+      }
+    </div>
+  );
+}
+
+// ─── COMMUNAUTÉ ───────────────────────────────────────────────────────────────
+const MAX_MSG_LENGTH = 200;
+
+function CommunityScreen({ goBack, session, demoMode }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [likedIds, setLikedIds] = useState(new Set());
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const loadMessages = async () => {
+    if (demoMode) {
+      setMessages([
+        { id:"d1", content:"Aujourd'hui j'ai choisi de me parler comme à une amie. C'est plus difficile qu'il n'y paraît, mais ça change tout.", likes:7, created_at: new Date().toISOString() },
+        { id:"d2", content:"Rappel du jour : tu n'as pas à mériter le repos. Tu peux simplement te reposer.", likes:12, created_at: new Date().toISOString() },
+        { id:"d3", content:"Je suis fière d'avoir mis une limite aujourd'hui, même si c'était inconfortable.", likes:5, created_at: new Date().toISOString() },
+        { id:"d4", content:"Une petite victoire : j'ai recommencé à écrire dans mon journal après des semaines d'absence. Sans me juger.", likes:9, created_at: new Date().toISOString() },
+      ]);
+      setLoading(false);
+      return;
+    }
+    const { data } = await supabase
+      .from("community_messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setMessages(data);
+
+    if (session?.user) {
+      const { data: liked } = await supabase
+        .from("community_likes")
+        .select("message_id")
+        .eq("user_id", session.user.id);
+      if (liked) setLikedIds(new Set(liked.map(l => l.message_id)));
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadMessages(); }, []);
+
+  const handleSend = async () => {
+    if (!text.trim()) return;
+    if (text.length > MAX_MSG_LENGTH) { setError(`Maximum ${MAX_MSG_LENGTH} caractères.`); return; }
+    if (demoMode) { setError("Connecte-toi pour partager un message."); return; }
+    setSending(true); setError("");
+    const { error: err } = await supabase.from("community_messages").insert({
+      user_id: session.user.id,
+      content: text.trim(),
+    });
+    if (err) { setError("Une erreur est survenue. Réessaie."); }
+    else { setText(""); loadMessages(); }
+    setSending(false);
+  };
+
+  const handleLike = async (msg) => {
+    if (demoMode) return;
+    const alreadyLiked = likedIds.has(msg.id);
+    const newLikedIds = new Set(likedIds);
+    if (alreadyLiked) {
+      newLikedIds.delete(msg.id);
+      setLikedIds(newLikedIds);
+      setMessages(prev => prev.map(m => m.id===msg.id ? {...m, likes: Math.max(0, m.likes-1)} : m));
+      await supabase.from("community_likes").delete().eq("user_id", session.user.id).eq("message_id", msg.id);
+      await supabase.from("community_messages").update({ likes: Math.max(0, msg.likes-1) }).eq("id", msg.id);
+    } else {
+      newLikedIds.add(msg.id);
+      setLikedIds(newLikedIds);
+      setMessages(prev => prev.map(m => m.id===msg.id ? {...m, likes: m.likes+1} : m));
+      await supabase.from("community_likes").insert({ user_id: session.user.id, message_id: msg.id });
+      await supabase.from("community_messages").update({ likes: msg.likes+1 }).eq("id", msg.id);
+    }
+  };
+
+  const formatTime = (iso) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 60000);
+    if (diff < 1) return "à l'instant";
+    if (diff < 60) return `il y a ${diff} min`;
+    if (diff < 1440) return `il y a ${Math.floor(diff/60)}h`;
+    return d.toLocaleDateString("fr-FR", { day:"numeric", month:"short" });
+  };
+
+  return (
+    <div style={s.screen}>
+      <BackBtn goBack={goBack} label="← Accueil"/>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <span style={{fontSize:22}}>🌸</span>
+        <h2 style={s.screenTitle}>Espace communauté</h2>
+      </div>
+      <p style={s.screenSub}>Un espace bienveillant pour partager anonymement.</p>
+
+      <div style={{...s.mysticalCard,marginBottom:14}}>
+        <textarea
+          style={{...s.textarea,minHeight:80}}
+          placeholder="Partage une pensée, une victoire, une affirmation... en toute bienveillance."
+          value={text}
+          onChange={e=>{ setText(e.target.value); if(error) setError(""); }}
+          maxLength={MAX_MSG_LENGTH+10}
+        />
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+          <span style={{fontSize:10,color:text.length>MAX_MSG_LENGTH?"#E89B9B":"rgba(196,164,224,0.35)"}}>
+            {text.length}/{MAX_MSG_LENGTH}
+          </span>
+          <button
+            style={{...s.validateBtn,padding:"8px 20px",fontSize:12,opacity:(sending||!text.trim()||text.length>MAX_MSG_LENGTH)?0.5:1}}
+            onClick={handleSend}
+            disabled={sending||!text.trim()||text.length>MAX_MSG_LENGTH}
+          >
+            {sending?"...":"Partager 💜"}
+          </button>
+        </div>
+        {error && <p style={{color:"#E89B9B",fontSize:11,margin:"6px 0 0",fontStyle:"italic"}}>{error}</p>}
+      </div>
+
+      <Divider/>
+
+      {loading && <p style={{color:"rgba(196,164,224,0.35)",fontSize:12,textAlign:"center",fontStyle:"italic",padding:"20px 0"}}>Chargement...</p>}
+
+      {!loading && messages.length===0 && (
+        <div style={{textAlign:"center",padding:"24px 0"}}>
+          <span style={{fontSize:32}}>🌱</span>
+          <p style={{color:"rgba(196,164,224,0.45)",fontSize:13,fontStyle:"italic",marginTop:12,lineHeight:1.6}}>
+            Sois la première à partager quelque chose.<br/>La communauté commence ici.
+          </p>
+        </div>
+      )}
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {messages.map(msg=>{
+          const liked = likedIds.has(msg.id);
+          return (
+            <div key={msg.id} style={{background:"rgba(155,111,212,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"14px"}}>
+              <p style={{color:"rgba(232,213,245,0.88)",fontSize:13,lineHeight:1.7,margin:"0 0 10px",fontStyle:"italic"}}>
+                "{msg.content}"
+              </p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{color:"rgba(196,164,224,0.3)",fontSize:10}}>{formatTime(msg.created_at)}</span>
+                <button
+                  onClick={()=>handleLike(msg)}
+                  style={{background:liked?"rgba(196,164,224,0.08)":"none",border:"none",cursor:demoMode?"default":"pointer",display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:8}}
+                >
+                  <span style={{fontSize:14,opacity:liked?1:0.4}}>{liked?"💜":"🤍"}</span>
+                  <span style={{color:liked?"#C4A4E0":"rgba(196,164,224,0.35)",fontSize:11}}>{msg.likes}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{color:"rgba(196,164,224,0.2)",fontSize:10,textAlign:"center",margin:"20px 0 0",lineHeight:1.6,fontStyle:"italic"}}>
+        Tous les messages sont anonymes et partagés avec bienveillance.
+      </p>
+    </div>
+  );
+}
+
+function BottomNav({ screen, onNavigate, isPremium }) {
+  const items = [
+    { label:"Accueil", key:"home", icon:<CompassRose size={18} color={screen==="home"?"#C4A4E0":"rgba(196,164,224,0.35)"}/> },
+    { label:"Humeur", key:"humeur", icon:<EyeIcon size={18} color={screen==="humeur"?"#C4A4E0":"rgba(196,164,224,0.35)"}/> },
+    { label:"Journal", key:"journal", icon:<span style={{fontSize:16,opacity:screen==="journal"?1:0.35}}>📖</span> },
+    { label:"Communauté", key:"communaute", icon:<span style={{fontSize:16,opacity:screen==="communaute"?1:0.35}}>🌸</span> },
+    { label:"Exercices", key:"exercices", icon:<span style={{fontSize:16,opacity:screen==="exercices"?1:0.35}}>🌿</span> },
+    { label:"Premium", key:"premium", icon:<StarIcon size={16} color={screen==="premium"?"#D4AF7A":"rgba(212,175,122,0.35)"}/> },
+  ];
+  return (
+    <div style={s.bottomNav}>
+      {items.map(item=>(
+        <button key={item.key} style={s.navItem} onClick={()=>onNavigate(item.key)}>
+          {item.icon}
+          <span style={{fontSize:8,letterSpacing:0.3,color:screen===item.key?"#C4A4E0":"rgba(196,164,224,0.35)"}}>{item.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+// ─── THÈMES ───────────────────────────────────────────────────────────────────
+const themes = {
+  mystique: {
+    id:"mystique", name:"Nuit mystique", emoji:"🌙",
+    bg:"#060410", phoneBg:"#0D0A12", primary:"#9B6FD4", light:"#C4A4E0",
+    text:"rgba(232,213,245,0.9)", textDim:"rgba(196,164,224,0.5)",
+    gold:"#D4AF7A", green:"#A8C5A0",
+    glow1:"rgba(155,111,212,0.08)", glow2:"rgba(196,164,224,0.06)", glow3:"rgba(212,175,122,0.05)",
+    border:"rgba(196,164,224,0.15)", card:"rgba(155,111,212,0.05)",
+  },
+  rosee: {
+    id:"rosee", name:"Douceur rosée", emoji:"🌸",
+    bg:"#12080E", phoneBg:"#1A0C14", primary:"#C4709B", light:"#E4A8C4",
+    text:"rgba(245,225,235,0.9)", textDim:"rgba(220,180,200,0.5)",
+    gold:"#D4907A", green:"#B8A8C0",
+    glow1:"rgba(196,112,155,0.08)", glow2:"rgba(228,168,196,0.06)", glow3:"rgba(212,144,122,0.05)",
+    border:"rgba(220,168,196,0.15)", card:"rgba(196,112,155,0.05)",
+  },
+  ocean: {
+    id:"ocean", name:"Océan profond", emoji:"🌊",
+    bg:"#060C12", phoneBg:"#0A1420", primary:"#4A8FD4", light:"#7FC0E0",
+    text:"rgba(220,238,248,0.9)", textDim:"rgba(160,200,230,0.5)",
+    gold:"#7AB8C8", green:"#6ACFB8",
+    glow1:"rgba(74,143,212,0.08)", glow2:"rgba(127,192,224,0.06)", glow3:"rgba(106,207,184,0.05)",
+    border:"rgba(127,192,224,0.15)", card:"rgba(74,143,212,0.05)",
+  },
+  foret: {
+    id:"foret", name:"Forêt calme", emoji:"🌿",
+    bg:"#060C08", phoneBg:"#0A1410", primary:"#5A9B6F", light:"#8EC4A0",
+    text:"rgba(220,242,228,0.9)", textDim:"rgba(160,210,178,0.5)",
+    gold:"#C8B870", green:"#8EC4A0",
+    glow1:"rgba(90,155,111,0.08)", glow2:"rgba(142,196,160,0.06)", glow3:"rgba(200,184,112,0.05)",
+    border:"rgba(142,196,160,0.15)", card:"rgba(90,155,111,0.05)",
+  },
+  doree: {
+    id:"doree", name:"Lumière dorée", emoji:"☀️",
+    bg:"#120C04", phoneBg:"#1C1408", primary:"#C49840", light:"#E0C478",
+    text:"rgba(248,238,218,0.9)", textDim:"rgba(220,196,158,0.5)",
+    gold:"#E0A060", green:"#B8C898",
+    glow1:"rgba(196,152,64,0.08)", glow2:"rgba(224,196,120,0.06)", glow3:"rgba(224,160,96,0.05)",
+    border:"rgba(224,196,120,0.15)", card:"rgba(196,152,64,0.05)",
+  },
+};
+
+// ─── BIBLIOTHÈQUE ─────────────────────────────────────────────────────────────
+const bibliotheque = {
+  lire: [
+    { titre:"L'art de l'autocompassion", auteur:"Kristin Neff", extrait:"Se montrer de la compassion envers soi-même, c'est reconnaître que souffrir, échouer, et se sentir inadéquat font partie de l'expérience humaine partagée.", tags:["compassion","soi"] },
+    { titre:"Pourquoi les zebras n'ont pas d'ulcères", auteur:"Robert Sapolsky", extrait:"Le stress n'est pas ce qui nous arrive — c'est la façon dont notre corps y répond. Et nous avons plus de contrôle sur cette réponse qu'on ne le pense.", tags:["stress","corps"] },
+    { titre:"La puissance du moment présent", auteur:"Eckhart Tolle", extrait:"Le moment présent est le seul endroit où la vie existe vraiment. Tout le reste — passé et futur — n'est qu'une projection de l'esprit.", tags:["pleine conscience","présent"] },
+    { titre:"Oser être imparfaite", auteur:"Brené Brown", extrait:"La vulnérabilité n'est pas une faiblesse. C'est notre mesure la plus précise du courage.", tags:["vulnérabilité","courage"] },
+    { titre:"Le pouvoir des habitudes", auteur:"Charles Duhigg", extrait:"Les habitudes ne sont jamais vraiment supprimées — elles sont remplacées. Comprendre la boucle habitude-routine-récompense, c'est reprendre le contrôle.", tags:["habitudes","changement"] },
+    { titre:"Pleine catastrophe, pleine vie", auteur:"Jon Kabat-Zinn", extrait:"La pleine conscience signifie faire attention d'une manière particulière : délibérément, dans le moment présent, et sans jugement.", tags:["méditation","pleine conscience"] },
+    { titre:"Les quatre accords toltèques", auteur:"Don Miguel Ruiz", extrait:"Parle avec intégrité. Ne dis que ce que tu penses vraiment. Évite d'utiliser la parole dans le sens opposé à la vérité.", tags:["sagesse","parole"] },
+    { titre:"Feeling Good", auteur:"David D. Burns", extrait:"Ce ne sont pas les événements qui provoquent nos émotions, mais les pensées que nous avons sur ces événements. Et les pensées peuvent changer.", tags:["pensées","émotions"] },
+  ],
+  ecouter: [
+    { titre:"Change ma vie — Outils pour l'esprit", auteur:"Clotilde Dusoulier", desc:"LE podcast francophone de coaching personnel, avec plus de 40 millions d'écoutes. Des outils concrets chaque semaine pour mieux se comprendre et changer sa vie de l'intérieur.", lien:"https://open.spotify.com/show/36isIFl19RmazfJ5IInzIT", plateforme:"Spotify" },
+    { titre:"Métamorphose — Éveille ta conscience", auteur:"Anne Ghesquière", desc:"Interviews profondes autour de la spiritualité, la pleine conscience, la psychologie et le développement personnel. Un des podcasts bien-être les plus écoutés en France.", lien:"https://open.spotify.com/show/4hHandfWA1QXgEEBod4egE", plateforme:"Spotify" },
+    { titre:"Gaia Meditation — Relaxation & Sommeil", auteur:"Gaia Meditation", desc:"Méditations guidées en français, affirmations positives, musiques de relaxation et guides respiratoires. Parfait pour s'endormir ou décompresser.", lien:"https://open.spotify.com/show/4imfmln8xwtpUxQW4dCqe4", plateforme:"Spotify" },
+    { titre:"On Purpose with Jay Shetty", auteur:"Jay Shetty", desc:"Des conversations profondes sur le sens de la vie, les relations et le développement personnel. Disponible avec sous-titres en français sur Spotify.", lien:"https://open.spotify.com/show/5EqqB52m2bsr4k1Ii7sStc", plateforme:"Spotify" },
+    { titre:"The Happiness Lab", auteur:"Dr. Laurie Santos", desc:"Une chercheuse de Yale déconstruit les idées reçues sur le bonheur avec des recherches scientifiques. Disponible avec sous-titres en français sur Spotify.", lien:"https://open.spotify.com/show/3i5TCKhc6GY42pOWkpWveG", plateforme:"Spotify" },
+    { titre:"Huberman Lab", auteur:"Andrew Huberman", desc:"La neuroscience au service du bien-être — sommeil, stress, dopamine, émotions. Rigoureux et accessible. Sous-titres français disponibles.", lien:"https://open.spotify.com/show/79CkJF3UJTHFV8Dse3Oy0P", plateforme:"Spotify" },
+  ],
+  regarder: [
+    { titre:"The Power of Vulnerability", auteur:"Brené Brown · TED", desc:"La conférence TED la plus vue sur la vulnérabilité, le courage et le lien humain. Sous-titres français disponibles.", lien:"https://www.youtube.com/watch?v=iCvmsMzlF7o", duree:"20 min" },
+    { titre:"How to Make Stress Your Friend", auteur:"Kelly McGonigal · TED", desc:"Une nouvelle façon de voir le stress — non pas comme un ennemi, mais comme un signal de vitalité. Sous-titres français disponibles.", lien:"https://www.youtube.com/watch?v=RcGyVTAoXEU", duree:"14 min" },
+    { titre:"Méditation guidée — Compassion envers soi", auteur:"Ginkgo · YouTube", desc:"Une méditation guidée entièrement en français pour cultiver la douceur et la compassion envers soi-même.", lien:"https://www.youtube.com/watch?v=pQA-k1J6cJ4", duree:"15 min" },
+    { titre:"Méditation — Amour de soi et confiance", auteur:"Mike Méditation · YouTube", desc:"Une méditation guidée profonde en français pour développer l'amour de soi, l'acceptation et la confiance intérieure.", lien:"https://www.youtube.com/watch?v=PrYVqnE6ZmI", duree:"20 min" },
+    { titre:"The Art of Being Alone", auteur:"Aloneness · YouTube", desc:"Une méditation visuelle sur la solitude choisie, la présence à soi et l'art de se retrouver. Sous-titres français disponibles.", lien:"https://www.youtube.com/watch?v=c0KYU2j0TM4", duree:"10 min" },
+    { titre:"Why We All Need to Practice Emotional First Aid", auteur:"Guy Winch · TED", desc:"Comment prendre soin de ses blessures émotionnelles avec autant de sérieux que ses blessures physiques. Sous-titres français disponibles.", lien:"https://www.youtube.com/watch?v=-rc8gJFCJBY", duree:"17 min" },
+  ],
+};
+
+const s = {
+  root:{minHeight:"100vh",background:"#060410",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Georgia,'Times New Roman',serif",position:"relative",overflow:"hidden",padding:"20px 0"},
+  glow1:{position:"fixed",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(155,111,212,0.08) 0%,transparent 70%)",top:"-150px",right:"-150px",pointerEvents:"none"},
+  glow2:{position:"fixed",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(196,164,224,0.06) 0%,transparent 70%)",bottom:"-100px",left:"-100px",pointerEvents:"none"},
+  glow3:{position:"fixed",width:350,height:350,borderRadius:"50%",background:"radial-gradient(circle,rgba(212,175,122,0.05) 0%,transparent 70%)",top:"50%",left:"50%",transform:"translate(-50%,-50%)",pointerEvents:"none"},
+  phone:{width:375,minHeight:780,maxHeight:860,background:"#0D0A12",borderRadius:44,border:"1px solid rgba(196,164,224,0.15)",boxShadow:"0 40px 80px rgba(0,0,0,0.8),inset 0 1px 0 rgba(196,164,224,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"},
+  statusBar:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 24px 6px",position:"relative",zIndex:1},
+  statusTime:{color:"rgba(232,213,245,0.6)",fontSize:12,fontFamily:"Georgia,serif",letterSpacing:1},
+  premiumPill:{background:"rgba(212,175,122,0.1)",border:"1px solid rgba(212,175,122,0.25)",color:"#D4AF7A",fontSize:9,borderRadius:8,padding:"2px 8px",display:"flex",alignItems:"center",gap:4,letterSpacing:0.5},
+  content:{flex:1,overflowY:"auto",scrollbarWidth:"none"},
+  screen:{padding:"8px 20px 20px"},
+  backBtn:{background:"none",border:"none",color:"rgba(196,164,224,0.5)",fontSize:12,cursor:"pointer",padding:"4px 0 12px",display:"flex",alignItems:"center",gap:4,letterSpacing:0.5,fontFamily:"Georgia,serif"},
+  homeHeader:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14},
+  greeting:{color:"rgba(196,164,224,0.5)",fontSize:10,margin:0,letterSpacing:2,textTransform:"uppercase"},
+  appName:{color:"rgba(232,213,245,0.95)",fontSize:30,margin:"4px 0 0",fontStyle:"italic",fontWeight:"normal",letterSpacing:1},
+  streakBadge:{background:"rgba(212,175,122,0.08)",border:"1px solid rgba(212,175,122,0.2)",borderRadius:14,padding:"8px 12px",display:"flex",flexDirection:"column",alignItems:"center",gap:2},
+  streakNum:{color:"#D4AF7A",fontSize:20,fontWeight:"bold",lineHeight:1},
+  streakLabel:{color:"rgba(212,175,122,0.55)",fontSize:9,letterSpacing:1},
+  affCard:{background:"rgba(155,111,212,0.06)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:18,padding:"18px 16px",marginBottom:4,position:"relative",overflow:"hidden"},
+  affText:{color:"rgba(232,213,245,0.9)",fontSize:15,lineHeight:1.7,fontStyle:"italic",margin:"0 0 16px",textAlign:"center"},
+  affBtn:{background:"rgba(155,111,212,0.12)",border:"1px solid rgba(196,164,224,0.2)",color:"rgba(196,164,224,0.8)",borderRadius:10,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"Georgia,serif",display:"flex",alignItems:"center",gap:6,letterSpacing:0.5,margin:"0 auto"},
+  quickGrid:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:16},
+  quickCard:{background:"rgba(196,164,224,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"12px 3px",display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:"pointer",transition:"all 0.2s"},
+  quickLabel:{fontSize:8,textAlign:"center",letterSpacing:0.2},
+  premiumBanner:{width:"100%",background:"rgba(212,175,122,0.06)",border:"1px solid rgba(212,175,122,0.2)",borderRadius:14,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"},
+  bannerTitle:{color:"#D4AF7A",fontSize:12,fontWeight:"bold",margin:"0 0 2px",letterSpacing:0.3},
+  bannerSub:{color:"rgba(212,175,122,0.5)",fontSize:10,margin:0,letterSpacing:0.3},
+  tipCard:{background:"rgba(155,111,212,0.06)",border:"1px solid rgba(196,164,224,0.12)",borderRadius:14,padding:"12px 14px",display:"flex",alignItems:"flex-start",gap:10},
+  tipText:{color:"rgba(196,164,224,0.65)",fontSize:12,lineHeight:1.5,margin:0,fontStyle:"italic"},
+  screenTitle:{color:"rgba(232,213,245,0.95)",fontSize:22,fontStyle:"italic",fontWeight:"normal",margin:"6px 0 4px"},
+  screenSub:{color:"rgba(196,164,224,0.5)",fontSize:12,margin:"0 0 16px",fontStyle:"italic"},
+  moodGrid:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:20},
+  moodCard:{borderRadius:16,padding:"18px 10px",display:"flex",flexDirection:"column",alignItems:"center",gap:8,cursor:"pointer",transition:"all 0.25s"},
+  mysticalCard:{background:"rgba(155,111,212,0.05)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:16,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",display:"flex",flexDirection:"column"},
+  validateBtn:{background:"linear-gradient(135deg,#9B6FD4,#C4A4E0)",border:"none",borderRadius:12,padding:"12px 24px",color:"#0D0A12",fontSize:13,fontWeight:"bold",cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:0.5,display:"block"},
+  ghostBtn:{background:"transparent",border:"1px solid rgba(196,164,224,0.2)",color:"rgba(196,164,224,0.7)",borderRadius:10,padding:"8px 16px",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:0.5},
+  input:{width:"100%",background:"rgba(155,111,212,0.05)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:12,padding:"12px 14px",color:"rgba(232,213,245,0.9)",fontSize:13,fontFamily:"Georgia,serif",outline:"none",boxSizing:"border-box"},
+  textarea:{width:"100%",minHeight:120,background:"rgba(155,111,212,0.05)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:14,padding:14,color:"rgba(232,213,245,0.85)",fontSize:13,lineHeight:1.7,resize:"none",fontFamily:"Georgia,serif",fontStyle:"italic",outline:"none",boxSizing:"border-box"},
+  breathBox:{background:"rgba(155,111,212,0.05)",border:"1px solid rgba(196,164,224,0.15)",borderRadius:20,padding:"20px 16px",marginBottom:18,display:"flex",flexDirection:"column",alignItems:"center",gap:14,position:"relative",overflow:"hidden"},
+  breathCircle:{width:88,height:88,borderRadius:"50%",border:"1px solid rgba(196,164,224,0.2)"},
+  exerciseCard:{background:"rgba(196,164,224,0.04)",border:"1px solid rgba(196,164,224,0.1)",borderRadius:14,padding:"12px 14px",display:"flex",alignItems:"center",gap:12},
+  bottomNav:{display:"flex",justifyContent:"space-around",alignItems:"center",padding:"8px 4px 14px",borderTop:"1px solid rgba(196,164,224,0.08)",background:"rgba(8,6,16,0.95)"},
+  navItem:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"0 2px"},
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<LumiereApp/>);
+</script>
+</body>
+</html>
